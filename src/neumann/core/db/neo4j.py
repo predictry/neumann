@@ -19,6 +19,7 @@ def get_connection():
     :return: py2neo GraphDatabaseService object
     """
 
+    #todo: use classes; if endpoint is not defined, try localhost; if there is no response, thrown an except
     conf = config.load_configuration()
 
     try:
@@ -299,7 +300,6 @@ class Query:
     """
 
     def __init__(self, query, params):
-
 
         self.query = query
         self.params = params

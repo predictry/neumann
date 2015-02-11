@@ -15,8 +15,8 @@ function buildEnvironment(){
     ENV=app-env
     REQUIREMENTS=requirements.txt
 
-    #virtualenv $ENV
-    python3 -m venv ${ENV}
+    virtualenv $ENV
+    #python3 -m venv ${ENV}
 
     PYTHONENV=${ENV}/bin
     SRCROOT=src

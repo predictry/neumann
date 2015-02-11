@@ -1,5 +1,8 @@
 flask==0.10.1
-flask-restful==0.3.1
 uwsgi==2.0.9
-py2neo==2.0.3
 chardet==2.2.1
+py2neo==2.0.3
+sqlalchemy==0.9.8
+pg8000==1.10.1
+luigi==1.0.20
+tornado==4.0.2

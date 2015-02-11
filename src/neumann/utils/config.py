@@ -7,6 +7,9 @@ PROJECT_BASE = ''.join([os.path.dirname(os.path.abspath(__file__)), "/../../../"
 CONFIG_FILE = ''.join([PROJECT_BASE, 'config.json'])
 
 
+#todo: Load configuration into a class
+
+
 def load_configuration():
 
     if os.path.isfile(CONFIG_FILE):
