@@ -26,10 +26,11 @@ ENV APP app
 ENV APPDIR /${APP}
 RUN mkdir -p ${APPDIR}
 RUN chown -R dispatch:dispatch ${APPDIR}
+RUN mkdir /etc/luigi
 
 USER dispatch
 
-# get code from github
+# copy code into container
 ADD README.md requirements.txt ${APPDIR}/
 ADD nginx-app.conf supervisor-app.conf uwsgi.ini uwsgi_params ${APPDIR}/
 ADD config.json logging.json ${APPDIR}/
@@ -37,6 +38,7 @@ ADD scripts ${APPDIR}/scripts
 ADD src ${APPDIR}/src
 ADD tests ${APPDIR}/tests
 ADD boto.cfg /home/dispatch/.boto.cfg
+ADD client.cfg /etc/luigi/luigi.cfg
 
 # Build app env
 WORKDIR ${APPDIR}
