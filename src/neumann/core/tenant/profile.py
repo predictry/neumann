@@ -1,13 +1,20 @@
 __author__ = 'guilherme'
 
+import sqlalchemy
+import sqlalchemy.sql
 
 from neumann.core.model import store
 from neumann.core.db import rdb
 from neumann.utils import config
 from neumann.utils.logger import Logger
+from neumann.core.db import neo4j
 
 
 def get_db_connection_string():
+    """
+
+    :return:
+    """
 
     #todo: configuration should be a class, not a dictionary
     #todo: build unit test
@@ -41,14 +48,21 @@ def get_db_connection_string():
 
 
 def get_tenants():
+    """
+
+    :return:
+    """
 
     engine = rdb.get_engine(connection_string=get_db_connection_string())
+    conn = engine.connect()
 
-    rows = rdb.select(engine, store.Site)
+    s = sqlalchemy.sql.select([store.Site])
+
+    result = conn.execute(s)
 
     sites = []
 
-    for row in rows:
+    for row in result:
 
         site = store.Site()
         site.id = row["id"]
@@ -59,8 +73,98 @@ def get_tenants():
     return sites
 
 
+def get_tenant_widgets(tenant_id):
+    """
+
+    :return:
+    """
+
+    engine = rdb.get_engine(connection_string=get_db_connection_string())
+    conn = engine.connect()
+
+    s = sqlalchemy.sql.select([store.Widget]).where(store.Widget.site_id == tenant_id)
+
+    result = conn.execute(s)
+
+    widgets = []
+
+    for row in result:
+
+        widget = store.Widget()
+        widget.id = row["id"]
+        widget.site_id = row["site_id"]
+        widget.reco_type = row["reco_type"]
+
+        widgets.append(widget)
+
+    return widgets
+
+
+@neo4j.CypherQuery("MATCH (n :`{LABEL}`) RETURN DISTINCT LABELS(n) AS labels".format(
+    LABEL=store.LABEL_ITEM))
+def get_active_tenants(**kwargs):
+    """
+
+    :param kwargs:
+    :return:
+    """
+
+    tenants = []
+
+    for row in kwargs["result"]:
+        tenants.extend([x for x in row["labels"] if x != store.LABEL_ITEM])
+
+    return tenants
+
+
+@neo4j.CypherQuery("MATCH (n :`{LABEL}`) RETURN COUNT (n) AS n".format(LABEL=store.LABEL_ITEM))
+def item_count(**kwargs):
+    """
+
+    :param kwargs:
+    :return:
+    """
+
+    return kwargs["result"][0]["n"]
+
+
+@neo4j.CypherQuery("MATCH (n :`{LABEL}`) WHERE {{tenant}} IN LABELS(n) RETURN COUNT (n) AS n".format(LABEL=store.LABEL_ITEM))
+def item_count_for_tenant(tenant, **kwargs):
+    """
+
+    :param tenant:
+    :param kwargs:
+    :return:
+    """
+
+    return kwargs["result"][0]["n"]
+
+
+@neo4j.CypherQuery("MATCH (n :`{LABEL}` {{id: {{id}} }}) RETURN n".format(LABEL=store.LABEL_ITEM))
+def get_item(id, **kwargs):
+    """
+
+    :param id:
+    :param kwargs:
+    :return:
+    """
+
+    return kwargs["result"][0]["n"]
 
 
 if __name__ == "__main__":
 
-    print(get_tenants())
+    #r = get_active_tenants()
+    #print("Tenants: {0}".format(r))
+
+    #r = item_count()
+    #print("`Items` Count: {0}".format(r))
+
+    #r = item_count_for_tenant(tenant="bukalapak")
+    #print("`Items` Count for `bukalapak`: {0}".format(r))
+
+    #r = get_item(id="1007902")
+    #print("Item:\n\t{0}".format(r))
+
+    r = get_tenant_widgets(tenant_id=17)
+    print(r)
