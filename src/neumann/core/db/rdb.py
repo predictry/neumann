@@ -10,13 +10,3 @@ def get_engine(connection_string):
 
     return engine
 
-
-def select(engine, model):
-
-    conn = engine.connect()
-    s = sqlalchemy.sql.select([model])
-
-    result = conn.execute(s)
-
-    return result
-

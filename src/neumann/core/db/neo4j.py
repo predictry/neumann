@@ -286,7 +286,6 @@ class CypherQuery(object):
 
         self.__query = query
         self.__commit = commit
-        #self.__kwargs = kwargs
 
     def __call__(self, f):
 
@@ -296,8 +295,6 @@ class CypherQuery(object):
 
             for key, value in kwargs.iteritems():
                 params.append(Parameter(key, value))
-
-            print ("Query:", self.__query)
 
             query = Query(self.__query, params)
 
