@@ -32,11 +32,11 @@ class TaskRetrieveListOfTenants(luigi.Task):
 
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
 
-            sites = profile.get_tenants()
+            tenants = profile.get_tenants()
 
-            for site in sites:
+            for tenant in tenants:
 
-                writer.writerow([site.id, site.name])
+                writer.writerow([tenant.id, tenant.name])
 
 
 class TaskFilterNonReadyTenants(luigi.Task):
@@ -57,7 +57,7 @@ class TaskFilterNonReadyTenants(luigi.Task):
 
     def run(self):
 
-        sites = []
+        tenants = []
         active_tenants = profile.get_active_tenants()
 
         with self.input().open("r") as f:
@@ -66,19 +66,22 @@ class TaskFilterNonReadyTenants(luigi.Task):
 
             for row in reader:
 
-                site = store.Site()
-                site.id, site.name = row
+                tenant = store.Tenant()
+                tenant.id, tenant.name = row
 
-                if site.name in active_tenants:
-                    sites.append(site)
+                if tenant.name in active_tenants:
+                    tenants.append(tenant)
 
         with self.output().open("w") as f:
 
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
 
-            for site in sites:
+            for tenant in tenants:
 
-                writer.writerow([site.id, site.name])
+                writer.writerow([tenant.id, tenant.name])
+
+
+
 
 
 if __name__ == "__main__":

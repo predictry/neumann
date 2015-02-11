@@ -56,21 +56,21 @@ def get_tenants():
     engine = rdb.get_engine(connection_string=get_db_connection_string())
     conn = engine.connect()
 
-    s = sqlalchemy.sql.select([store.Site])
+    s = sqlalchemy.sql.select([store.Tenant])
 
     result = conn.execute(s)
 
-    sites = []
+    tenants = []
 
     for row in result:
 
-        site = store.Site()
-        site.id = row["id"]
-        site.name = row["name"]
+        tenant = store.Tenant()
+        tenant.id = row["id"]
+        tenant.name = row["name"]
 
-        sites.append(site)
+        tenants.append(tenant)
 
-    return sites
+    return tenants
 
 
 def get_tenant_widgets(tenant_id):

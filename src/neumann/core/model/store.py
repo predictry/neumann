@@ -31,7 +31,7 @@ REL_ACTION_TYPE_STARTED_CHECKOUT = "STARTED_CHECKOUT"
 REL_ACTION_TYPE_STARTED_PAYMENT = "STARTED_PAYMENT"
 
 
-class Site(Base):
+class Tenant(Base):
     """
 
     """
@@ -44,7 +44,7 @@ class Site(Base):
     def __repr__(self):
 
         return "{0}[id={1},name={2}]".format(self.__class__.__name__,
-                                                         self.id, self.name)
+                                             self.id, self.name)
 
     def __hash__(self):
 
