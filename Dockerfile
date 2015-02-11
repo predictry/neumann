@@ -18,17 +18,6 @@ RUN apt-get install python-setuptools -y
 RUN apt-get install python-dev -y
 RUN sudo pip install virtualenv
 
-# Python 3.4.2
-WORKDIR /tmp/
-RUN wget http://www.python.org/ftp/python/3.4.2/Python-3.4.2.tar.xz
-RUN tar -xvf Python-3.4.2.tar.xz
-WORKDIR /tmp/Python-3.4.2/
-RUN ls
-RUN ./configure --with-ensurepip=install
-RUN make -j `nproc`
-RUN make install
-RUN rm -rf /tmp/Python-3.4.2*
-
 # Add user
 RUN adduser --disabled-password --gecos "" dispatch
 
