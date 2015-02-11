@@ -10,6 +10,13 @@ from neumann.utils import config
 from neumann.utils.logger import Logger
 
 
+class TenantRecommendationSetting(object):
+
+    def __init__(self, tenant, method):
+        self.tenant = tenant
+        self.method = method
+
+
 def get_db_connection_string():
     """
 
