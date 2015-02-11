@@ -5,9 +5,9 @@ import sqlalchemy.sql
 
 from neumann.core.model import store
 from neumann.core.db import rdb
+from neumann.core.db import neo4j
 from neumann.utils import config
 from neumann.utils.logger import Logger
-from neumann.core.db import neo4j
 
 
 def get_db_connection_string():
@@ -150,21 +150,3 @@ def get_item(id, **kwargs):
     """
 
     return kwargs["result"][0]["n"]
-
-
-if __name__ == "__main__":
-
-    #r = get_active_tenants()
-    #print("Tenants: {0}".format(r))
-
-    #r = item_count()
-    #print("`Items` Count: {0}".format(r))
-
-    #r = item_count_for_tenant(tenant="bukalapak")
-    #print("`Items` Count for `bukalapak`: {0}".format(r))
-
-    #r = get_item(id="1007902")
-    #print("Item:\n\t{0}".format(r))
-
-    r = get_tenant_widgets(tenant_id=17)
-    print(r)
