@@ -1,7 +1,5 @@
 __author__ = 'guilherme'
 
-import os
-
 import sqlalchemy
 import sqlalchemy.ext.declarative
 import sqlalchemy.orm
@@ -66,6 +64,70 @@ class Widget(Base):
 
         return "{0}[id={1},site_id={2},reco_type={3}]".format(self.__class__.__name__,
                                                               self.id, self.site_id, self.reco_type)
+
+    def __hash__(self):
+
+        return hash(self.__repr__())
+
+
+class Item(object):
+
+    def __init__(self, tenant, id):
+
+        self.tenant = tenant
+        self.id = id
+
+    def __repr__(self):
+
+        return "Item[tenant={0},id={1}]".format(self.tenant, self.id)
+
+    def __hash__(self):
+
+        return hash(self.__repr__())
+
+
+class User(object):
+
+    def __init__(self, tenant, id):
+
+        self.tenant = tenant
+        self.id = id
+
+    def __repr__(self):
+
+        return "User[tenant={0},id={1}]".format(self.tenant, self.id)
+
+    def __hash__(self):
+
+        return hash(self.__repr__())
+
+
+class Agent(object):
+
+    def __init__(self, tenant, id):
+
+        self.tenant = tenant
+        self.id = id
+
+    def __repr__(self):
+
+        return "Agent[tenant={0},id={1}]".format(self.tenant, self.id)
+
+    def __hash__(self):
+
+        return hash(self.__repr__())
+
+
+class Session(object):
+
+    def __init__(self, tenant, id):
+
+        self.tenant = tenant
+        self.id = id
+
+    def __repr__(self):
+
+        return "Session[tenant={0},id={1}]".format(self.tenant, self.id)
 
     def __hash__(self):
 
