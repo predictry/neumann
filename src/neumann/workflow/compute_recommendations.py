@@ -11,6 +11,7 @@ from neumann.core.tenant import profile
 from neumann.core.model import store
 
 
+#todo: remove this line (let the system determine the tmp folder
 tempfile.tempdir = "/tmp"
 
 
@@ -62,9 +63,9 @@ class TaskFilterOutTenants(luigi.Task):
         tenants = []
 
         #get list of active tenants from graph db store
-        active_tenants = profile.get_active_tenants()
+        active_tenants_names = profile.get_active_tenants_names()
 
-        #filter out tenants that arent' active
+        #filter out tenants that aren't active
         with self.input().open("r") as f:
 
             reader = csv.reader(f)
@@ -74,7 +75,7 @@ class TaskFilterOutTenants(luigi.Task):
                 tenant = store.Tenant()
                 tenant.id, tenant.name = row
 
-                if tenant.name in active_tenants:
+                if tenant.name in active_tenants_names:
                     tenants.append(tenant)
 
         #write tenants out to file
@@ -88,7 +89,7 @@ class TaskFilterOutTenants(luigi.Task):
 
         return
 
-
+'''
 class TaskGetTenantsRecommendationSettings(luigi.Task):
 
     date = luigi.DateParameter()
@@ -142,6 +143,54 @@ class TaskGetTenantsRecommendationSettings(luigi.Task):
 
                 writer.writerow([setting.tenant.id, setting.tenant.name,
                                  setting.method])
+
+        return
+'''
+
+
+class TaskGetTenantsItemsList(luigi.Task):
+
+    date = luigi.DateParameter()
+
+    def requires(self):
+
+        return TaskFilterOutTenants(self.date)
+
+    def output(self):
+
+        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+
+        file_path = os.path.join(tempfile.gettempdir(), file_name)
+
+        return luigi.LocalTarget(file_path)
+
+    def run(self):
+
+        tenants = []
+
+        #get list of tenants
+        with self.input().open("r") as f:
+
+            reader = csv.reader(f)
+
+            for row in reader:
+
+                tenant = store.Tenant()
+                tenant.id, tenant.name = row
+
+                tenants.append(tenant)
+
+        #write configuration in output file
+        with self.output().open("w") as f:
+
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+
+            for tenant in tenants:
+
+                items = profile.get_tenant_items_list(tenant.name)
+
+                for item_id in items:
+                    writer.writerow([tenant.id, tenant.name, item_id])
 
         return
 
