@@ -13,3 +13,5 @@ class InvalidRelationshipTypeError(Exception):
     pass
 
 
+class UnknownRecommendationOption(Exception):
+    pass
