@@ -39,7 +39,7 @@ ADD src ${APPDIR}/src
 ADD tests ${APPDIR}/tests
 ADD boto.cfg /home/dispatch/.boto.cfg
 ADD client.cfg /etc/luigi/luigi.cfg
-ADD crontab.conf /app/crontab.conf 
+ADD crontab.conf ${APPDIR}/crontab.conf
 
 # Build app env
 WORKDIR ${APPDIR}
