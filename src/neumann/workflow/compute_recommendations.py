@@ -254,9 +254,6 @@ class TaskComputeRecommendations(luigi.Task):
 
                 tenant_id, tenant_name, item_id = row
 
-                if tenant_name not in ["FAMILYNARA2014", "grouponid"]:
-                    continue
-
                 try:
 
                     rtypes_used = list()
