@@ -301,7 +301,7 @@ class TaskComputeRecommendations(luigi.Task):
         return
 
 
-class TaskSaveResults(luigi.Task):
+class TaskSaveRecommendationResults(luigi.Task):
 
     date = luigi.DateParameter()
 
@@ -320,7 +320,6 @@ class TaskSaveResults(luigi.Task):
     def run(self):
 
         conf = config.load_configuration()
-
         redis_store = conf["redis-cache"]
 
         try:
