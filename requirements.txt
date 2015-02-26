@@ -4,5 +4,7 @@ chardet==2.2.1
 py2neo==2.0.3
 sqlalchemy==0.9.8
 pg8000==1.10.1
+redis==2.10.3
+hiredis==0.1.5
 luigi==1.0.20
 tornado==4.0.2

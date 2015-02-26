@@ -10,15 +10,16 @@ import json
 
 import luigi
 import luigi.file
+import redis
+import redis.exceptions
 
 from neumann.core.tenant import profile
 from neumann.core.model import store
 from neumann.core.recommend import item_based
 from neumann.core import errors
+from neumann.utils import config
 
 
-#TODO: insert headers in files
-#TODO: remove this line (let the system determine the tmp folder)
 tempfile.tempdir = "/tmp"
 RESPONSE_ITEMS_COUNT = 10
 
@@ -208,9 +209,6 @@ class TaskGetTenantsItemsList(luigi.Task):
         return
 
 
-#TODO: log success rate for each rtype
-#TODO: add task to compute success rate (At least 5 items recommended)
-#TODO: compute TR[V, P, AC] recommendations -> Different Workflow
 class TaskComputeRecommendations(luigi.Task):
 
     date = luigi.DateParameter()
@@ -256,6 +254,9 @@ class TaskComputeRecommendations(luigi.Task):
 
                 tenant_id, tenant_name, item_id = row
 
+                if tenant_name not in ["FAMILYNARA2014", "grouponid"]:
+                    continue
+
                 try:
 
                     rtypes_used = list()
@@ -291,7 +292,7 @@ class TaskComputeRecommendations(luigi.Task):
                     file_path = os.path.join(output_path, file_name)
 
                     with open(file_path, "w") as f:
-                        json.dump(tmp_items, f)
+                        json.dump(tmp_items, f, encoding="UTF-8")
 
                     #register computation
                     writer.writerow([tenant_id, tenant_name, item_id, len(items), ';'.join(rtypes_used),
@@ -301,6 +302,88 @@ class TaskComputeRecommendations(luigi.Task):
                     continue
 
         return
+
+
+class TaskSaveResults(luigi.Task):
+
+    date = luigi.DateParameter()
+
+    def requires(self):
+
+        return TaskComputeRecommendations(self.date)
+
+    def output(self):
+
+        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+
+        file_path = os.path.join(tempfile.gettempdir(), file_name)
+
+        return luigi.LocalTarget(file_path)
+
+    def run(self):
+
+        conf = config.load_configuration()
+
+        redis_store = conf["redis-cache"]
+
+        try:
+
+            r_server = redis.Redis(
+                host=redis_store["primary"]["ip_address"],
+                port=redis_store["primary"]["port"])
+
+        except redis.exceptions.ConnectionError:
+            print("Redis failed to connect to '{0}:{1}'".format(redis_store["primary"]["ip_address"],
+                                                                redis_store["primary"]["port"]))
+
+        else:
+
+            stats = dict()
+
+            with self.input().open("r") as in_file:
+
+                reader = csv.reader(in_file)
+                next(reader)
+
+                for row in reader:
+
+                    tenant_id, tenant_name, item_id, n_results, rtypes, rec_items, out_file = row
+
+                    key = ':'.join([tenant_name, item_id])
+
+                    with open(out_file, "r") as f:
+
+                        data = json.load(f, encoding="UTF-8")
+
+                        if tenant_name not in stats:
+                            stats[tenant_name] = 0
+                        stats[tenant_name] += 1
+
+                        r_server.set(key, json.dumps(data))
+
+            with self.input().open("r") as in_file:
+
+                reader = csv.reader(in_file)
+                next(reader)
+
+                for row in reader:
+
+                    tenant_id, tenant_name, item_id, n_results, rtypes, rec_items, out_file = row
+
+                    os.remove(out_file)
+
+            with self.output().open("w") as out_file:
+
+                writer = csv.writer(out_file, quoting=csv.QUOTE_ALL)
+                writer.writerow(["tenant_name", "n_items_processed"])
+
+                for k, v in stats.iteritems():
+
+                    writer.writerow([k, v])
+
+#TODO: log success rate for each rtype
+#TODO: add task to compute success rate (At least 5 items recommended)
+#TODO: compute TR[V, P, AC] recommendations -> Different Workflow
 
 
 if __name__ == "__main__":
