@@ -122,9 +122,12 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         }[x]
 
         template = """
-            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[r :`{REL}`]->(x :`{TENANT}` :`{ITEM_LABEL}`)
-            WITH s, r, x
-            ORDER BY r.datetime DESC
+            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`{REL}`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id: {{item_id}}}})
+            WITH s, i
+            MATCH (s)-[r :`{REL}`]->(x :`{TENANT}` :`{ITEM_LABEL}`)
+            WHERE i <> x
+            WITH r, x
+            ORDER BY r.datetime
             LIMIT {{n_actions}}
             RETURN x AS item, COUNT(x) AS n
             ORDER BY n DESC
@@ -135,6 +138,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
                                  ITEM_LABEL=store.LABEL_ITEM, REL=action(rtype)))
 
         params.append(neo4j.Parameter("n_actions", 1000))
+        params.append(neo4j.Parameter("item_id", item_id))
         params.append(neo4j.Parameter("limit", 10))
 
     else:
