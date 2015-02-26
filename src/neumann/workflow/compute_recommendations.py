@@ -69,7 +69,7 @@ class TaskFilterOutTenants(luigi.Task):
 
     def run(self):
 
-        tenants = []
+        tenants = list()
 
         #get list of active tenants from graph db store
         active_tenants_names = profile.get_active_tenants_names()
@@ -119,7 +119,7 @@ class TaskGetTenantsRecommendationSettings(luigi.Task):
 
     def run(self):
 
-        tenants = []
+        tenants = list()
 
         #get list of tenants
         with self.input().open("r") as f:
@@ -134,7 +134,7 @@ class TaskGetTenantsRecommendationSettings(luigi.Task):
                 tenants.append(tenant)
 
         #get tenant's configuration
-        tenants_recommendation_settings = []
+        tenants_recommendation_settings = list()
 
         for tenant in tenants:
 
@@ -177,7 +177,7 @@ class TaskGetTenantsItemsList(luigi.Task):
 
     def run(self):
 
-        tenants = []
+        tenants = list()
 
         #get list of tenants
         with self.input().open("r") as f:
@@ -229,7 +229,7 @@ class TaskComputeRecommendations(luigi.Task):
 
     def run(self):
 
-        rtype = ["oivt", "oiv", "anon-oiv"]
+        rtypes = ["oivt", "oiv", "anon-oiv"]
 
         #create output dir in temp dir
 
@@ -255,40 +255,29 @@ class TaskComputeRecommendations(luigi.Task):
             for row in reader:
 
                 tenant_id, tenant_name, item_id = row
-                items_id = []
 
                 try:
 
-                    rtypes_used = []
-                    tmp_items = item_based.compute_recommendation(tenant_name, rtype[0], item_id)
-                    if len(tmp_items) > 0:
-                        rtypes_used.append(rtype[0])
+                    rtypes_used = list()
+                    tmp_items = list()
 
-                    items_id.extend(set([item["id"] for item in tmp_items]))
+                    count = 0
+                    index = 0
 
-                    if len(tmp_items) < RESPONSE_ITEMS_COUNT:
+                    while count < RESPONSE_ITEMS_COUNT and index < len(rtypes):
 
-                        items_to_pad = item_based.compute_recommendation(tenant_name, rtype[1], item_id)
+                        results = item_based.compute_recommendation(tenant_name, rtypes[index], item_id)
 
-                        if len(items_to_pad) > 0:
-                            rtypes_used.append(rtype[1])
+                        if len(results) > 0:
+                            rtypes_used.append(rtypes[index])
+                            tmp_items.extend(results)
 
-                        items_id.extend(set([item["id"] for item in tmp_items]))
-                        tmp_items.extend(items_to_pad)
-
-                        if len(tmp_items) < RESPONSE_ITEMS_COUNT:
-
-                            items_to_pad = item_based.compute_recommendation(tenant_name, rtype[2], item_id)
-
-                            if len(items_to_pad) > 0:
-                                rtypes_used.append(rtype[2])
-
-                            items_id.extend(set([item["id"] for item in tmp_items]))
-                            tmp_items.extend(items_to_pad)
+                        index += 1
+                        count += len(results)
 
                     #list of unique items
                     items = list()
-                    items_id = set(items_id)
+                    items_id = set([item["id"] for item in tmp_items])
 
                     for id in items_id:
                         for item in tmp_items:
