@@ -8,7 +8,7 @@ from neumann.core.model import store
 from neumann.core.db import neo4j
 
 
-def rank_most_popular_items(data, key, collection=False, n=5):
+def __rank_most_popular_items(data, key, collection=False, n=5):
 
     all_items = list()
     item_store = dict()
@@ -34,8 +34,7 @@ def rank_most_popular_items(data, key, collection=False, n=5):
     return sorted(items_ranking, key=itemgetter("frequency"), reverse=True)
 
 
-#todo: return nodes, not id
-def generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
+def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
     q = list()
     params = list()
@@ -138,12 +137,16 @@ def generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         params.append(neo4j.Parameter("n_actions", 1000))
         params.append(neo4j.Parameter("limit", 10))
 
+    else:
+
+        raise errors.UnknownRecommendationOption("Recommendation option `{0}` isn't recognized".format(rtype))
+
     return neo4j.Query(''.join(q), params)
 
 
 def compute_recommendation(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
-    query = generate(tenant, rtype, item_id, filters, limit, fields)
+    query = __generate(tenant, rtype, item_id, filters, limit, fields)
 
     output = neo4j.run_query(query, commit=False)
 
@@ -170,7 +173,7 @@ def compute_recommendation(tenant, rtype, item_id, filters=None, limit=None, fie
 
         limit = limit if limit else 10
 
-        most_popular_items = rank_most_popular_items(collections, key="id", n=limit)
+        most_popular_items = __rank_most_popular_items(collections, key="id", n=limit)
 
         result = most_popular_items
 
