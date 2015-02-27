@@ -14,7 +14,6 @@ import redis
 import redis.exceptions
 
 from neumann.core.tenant import profile
-from neumann.core.model import store
 from neumann.core.recommend import item_based
 from neumann.core import errors
 from neumann.utils import config
@@ -38,21 +37,23 @@ class TaskRetrieveListOfTenants(luigi.Task):
 
     def run(self):
 
+        #get list of active tenants from graph db store
+        active_tenants_names = profile.get_active_tenants_names()
+
+        #write tenants out to file
         with self.output().open("w") as f:
 
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant_id", "tenant_name"])
+            writer.writerow(["tenant"])
 
-            tenants = profile.get_tenants()
+            for tenant in active_tenants_names:
 
-            for tenant in tenants:
-
-                writer.writerow([tenant.id, tenant.name])
+                writer.writerow([tenant])
 
         return
 
 
-class TaskFilterOutTenants(luigi.Task):
+class TaskRetrieveTenantsItemsList(luigi.Task):
 
     date = luigi.DateParameter()
 
@@ -72,114 +73,6 @@ class TaskFilterOutTenants(luigi.Task):
 
         tenants = list()
 
-        #get list of active tenants from graph db store
-        active_tenants_names = profile.get_active_tenants_names()
-
-        #filter out tenants that aren't active
-        with self.input().open("r") as f:
-
-            reader = csv.reader(f)
-            next(reader)
-
-            for row in reader:
-
-                tenant = store.Tenant()
-                tenant.id, tenant.name = row
-
-                if tenant.name in active_tenants_names:
-                    tenants.append(tenant)
-
-        #write tenants out to file
-        with self.output().open("w") as f:
-
-            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant_id", "tenant_name"])
-
-            for tenant in tenants:
-
-                writer.writerow([tenant.id, tenant.name])
-
-        return
-
-'''
-class TaskGetTenantsRecommendationSettings(luigi.Task):
-
-    date = luigi.DateParameter()
-
-    def requires(self):
-
-        return TaskFilterOutTenants(self.date)
-
-    def output(self):
-
-        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
-
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
-
-        return luigi.LocalTarget(file_path)
-
-    def run(self):
-
-        tenants = list()
-
-        #get list of tenants
-        with self.input().open("r") as f:
-
-            reader = csv.reader(f)
-
-            for row in reader:
-
-                tenant = store.Tenant()
-                tenant.id, tenant.name = row
-
-                tenants.append(tenant)
-
-        #get tenant's configuration
-        tenants_recommendation_settings = list()
-
-        for tenant in tenants:
-
-            widgets = profile.get_tenant_widgets(int(tenant.id))
-
-            methods = set([widget.reco_type for widget in widgets])
-
-            tenants_recommendation_settings.extend(
-                [profile.TenantRecommendationSetting(tenant, method) for method in methods])
-
-        #write configuration in output file
-        with self.output().open("w") as f:
-
-            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-
-            for setting in tenants_recommendation_settings:
-
-                writer.writerow([setting.tenant.id, setting.tenant.name,
-                                 setting.method])
-
-        return
-'''
-
-
-class TaskGetTenantsItemsList(luigi.Task):
-
-    date = luigi.DateParameter()
-
-    def requires(self):
-
-        return TaskFilterOutTenants(self.date)
-
-    def output(self):
-
-        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
-
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
-
-        return luigi.LocalTarget(file_path)
-
-    def run(self):
-
-        tenants = list()
-
         #get list of tenants
         with self.input().open("r") as f:
 
@@ -188,8 +81,7 @@ class TaskGetTenantsItemsList(luigi.Task):
 
             for row in reader:
 
-                tenant = store.Tenant()
-                tenant.id, tenant.name = row
+                tenant = row[0]
 
                 tenants.append(tenant)
 
@@ -197,14 +89,14 @@ class TaskGetTenantsItemsList(luigi.Task):
         with self.output().open("w") as f:
 
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant_id", "tenant_name", "item_id"])
+            writer.writerow(["tenant", "item_id"])
 
             for tenant in tenants:
 
-                items = profile.get_tenant_items_list(tenant.name)
+                items = profile.get_tenant_items_list(tenant)
 
                 for item_id in items:
-                    writer.writerow([tenant.id, tenant.name, item_id])
+                    writer.writerow([tenant, item_id])
 
         return
 
@@ -215,7 +107,7 @@ class TaskComputeRecommendations(luigi.Task):
 
     def requires(self):
 
-        return TaskGetTenantsItemsList(self.date)
+        return TaskRetrieveTenantsItemsList(self.date)
 
     def output(self):
 
@@ -248,11 +140,11 @@ class TaskComputeRecommendations(luigi.Task):
             next(reader)
 
             writer = csv.writer(out_file, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant_id", "tenant_name", "item_id", "n_results", "rtypes", "rec_items", "out_file"])
+            writer.writerow(["tenant", "item_id", "n_results", "rtypes", "rec_items", "out_file"])
 
             for row in reader:
 
-                tenant_id, tenant_name, item_id = row
+                tenant, item_id = row
 
                 try:
 
@@ -264,7 +156,7 @@ class TaskComputeRecommendations(luigi.Task):
 
                     while count < RESPONSE_ITEMS_COUNT and index < len(rtypes):
 
-                        results = item_based.compute_recommendation(tenant_name, rtypes[index], item_id)
+                        results = item_based.compute_recommendation(tenant, rtypes[index], item_id)
 
                         if len(results) > 0:
                             rtypes_used.append(rtypes[index])
@@ -284,7 +176,7 @@ class TaskComputeRecommendations(luigi.Task):
                                 break
 
                     #save output to its own json file
-                    file_name = "{0}_{1}_{2}".format(self.date.__str__(), tenant_name, item_id)
+                    file_name = "{0}_{1}_{2}".format(self.date.__str__(), tenant, item_id)
 
                     file_path = os.path.join(output_path, file_name)
 
@@ -292,7 +184,7 @@ class TaskComputeRecommendations(luigi.Task):
                         json.dump(tmp_items, f, encoding="UTF-8")
 
                     #register computation
-                    writer.writerow([tenant_id, tenant_name, item_id, len(items), ';'.join(rtypes_used),
+                    writer.writerow([tenant, item_id, len(items), ';'.join(rtypes_used),
                                     ';'.join(item["id"] for item in items), file_path])
 
                 except errors.UnknownRecommendationOption:
@@ -343,17 +235,17 @@ class TaskSaveRecommendationResults(luigi.Task):
 
                 for row in reader:
 
-                    tenant_id, tenant_name, item_id, n_results, rtypes, rec_items, out_file = row
+                    tenant, item_id, n_results, rtypes, rec_items, out_file = row
 
-                    key = ':'.join([tenant_name, item_id])
+                    key = ':'.join([tenant, item_id])
 
                     with open(out_file, "r") as f:
 
                         data = json.load(f, encoding="UTF-8")
 
-                        if tenant_name not in stats:
-                            stats[tenant_name] = 0
-                        stats[tenant_name] += 1
+                        if tenant not in stats:
+                            stats[tenant] = 0
+                        stats[tenant] += 1
 
                         r_server.set(key, json.dumps(data))
 
@@ -364,14 +256,14 @@ class TaskSaveRecommendationResults(luigi.Task):
 
                 for row in reader:
 
-                    tenant_id, tenant_name, item_id, n_results, rtypes, rec_items, out_file = row
+                    tenant, item_id, n_results, rtypes, rec_items, out_file = row
 
                     os.remove(out_file)
 
             with self.output().open("w") as out_file:
 
                 writer = csv.writer(out_file, quoting=csv.QUOTE_ALL)
-                writer.writerow(["tenant_name", "n_items_processed"])
+                writer.writerow(["tenant", "n_items_processed"])
 
                 for k, v in stats.iteritems():
 
