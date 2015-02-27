@@ -175,7 +175,7 @@ def get_tenant_items_list(tenant):
 
     n = item_count_for_tenant(tenant=tenant)
 
-    limit = 100
+    limit = 50000
     skip = 0
 
     q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n.id AS id SKIP {{skip}} LIMIT {{limit}}".format(
