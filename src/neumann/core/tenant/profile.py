@@ -62,23 +62,33 @@ def get_tenants():
     """
 
     engine = rdb.get_engine(connection_string=get_db_connection_string())
-    conn = engine.connect()
 
-    s = sqlalchemy.sql.select([store.Tenant])
+    try:
+        conn = engine.connect()
 
-    result = conn.execute(s)
+    except Exception as err:
 
-    tenants = []
+        Logger.error(err)
 
-    for row in result:
+        raise err
 
-        tenant = store.Tenant()
-        tenant.id = row["id"]
-        tenant.name = row["name"]
+    else:
 
-        tenants.append(tenant)
+        s = sqlalchemy.sql.select([store.Tenant])
 
-    return tenants
+        result = conn.execute(s)
+
+        tenants = []
+
+        for row in result:
+
+            tenant = store.Tenant()
+            tenant.id = row["id"]
+            tenant.name = row["name"]
+
+            tenants.append(tenant)
+
+        return tenants
 
 
 def get_tenant_widgets(tenant_id):
