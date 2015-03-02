@@ -17,7 +17,6 @@ from neumann.core.tenant import profile
 from neumann.core.recommend import item_based
 from neumann.core import errors
 from neumann.utils import config
-from neumann.utils.logger import Logger
 
 
 tempfile.tempdir = "/tmp"
@@ -182,7 +181,7 @@ class TaskComputeRecommendations(luigi.Task):
                     file_path = os.path.join(output_path, file_name)
 
                     with open(file_path, "w") as f:
-                        json.dump(items, f, encoding="UTF-8")
+                        json.dump(tmp_items, f, encoding="UTF-8")
 
                     #register computation
                     writer.writerow([tenant, item_id, len(items), ';'.join(rtypes_used),
@@ -229,7 +228,6 @@ class TaskSaveRecommendationResults(luigi.Task):
 
             stats = dict()
 
-            #Upload results
             with self.input().open("r") as in_file:
 
                 reader = csv.reader(in_file)
@@ -237,11 +235,11 @@ class TaskSaveRecommendationResults(luigi.Task):
 
                 for row in reader:
 
-                    tenant, item_id, n_results, rtypes, rec_items, results_file = row
+                    tenant, item_id, n_results, rtypes, rec_items, out_file = row
 
                     key = ':'.join([tenant, item_id])
 
-                    with open(results_file, "r") as f:
+                    with open(out_file, "r") as f:
 
                         data = json.load(f, encoding="UTF-8")
 
@@ -251,7 +249,6 @@ class TaskSaveRecommendationResults(luigi.Task):
 
                         r_server.set(key, json.dumps(data))
 
-            #delete generated files
             with self.input().open("r") as in_file:
 
                 reader = csv.reader(in_file)
@@ -259,25 +256,18 @@ class TaskSaveRecommendationResults(luigi.Task):
 
                 for row in reader:
 
-                    tenant, item_id, n_results, rtypes, rec_items, results_file = row
+                    tenant, item_id, n_results, rtypes, rec_items, out_file = row
 
-                    try:
-                        os.remove(results_file)
-                    except OSError as err:
-                        Logger.error(err)
-                        continue
+                    os.remove(out_file)
 
-            with self.output().open("w") as results_file:
+            with self.output().open("w") as out_file:
 
-                writer = csv.writer(results_file, quoting=csv.QUOTE_ALL)
+                writer = csv.writer(out_file, quoting=csv.QUOTE_ALL)
                 writer.writerow(["tenant", "n_items_processed"])
 
                 for k, v in stats.iteritems():
 
                     writer.writerow([k, v])
-
-
-#TODO: ADD TASK: UPDATE ITEMS TO S3
 
 #TODO: log success rate for each rtype
 #TODO: add task to compute success rate (At least 5 items recommended)
