@@ -165,15 +165,8 @@ class TaskComputeRecommendations(luigi.Task):
                         index += 1
                         count += len(results)
 
-                    #list of unique items
-                    items = list()
+                    #get item ids
                     items_id = set([item["id"] for item in tmp_items])
-
-                    for id in items_id:
-                        for item in tmp_items:
-                            if item["id"] == id:
-                                items.append(item)
-                                break
 
                     #save output to its own json file
                     file_name = "{0}_{1}_{2}".format(self.date.__str__(), tenant, item_id)
@@ -181,11 +174,11 @@ class TaskComputeRecommendations(luigi.Task):
                     file_path = os.path.join(output_path, file_name)
 
                     with open(file_path, "w") as f:
-                        json.dump(items, f, encoding="UTF-8")
+                        json.dump(items_id, f, encoding="UTF-8")
 
                     #register computation
-                    writer.writerow([tenant, item_id, len(items), ';'.join(rtypes_used),
-                                    ';'.join(item["id"] for item in items), file_path])
+                    writer.writerow([tenant, item_id, len(items_id), ';'.join(rtypes_used),
+                                    ';'.join(item_id for item_id in items_id), file_path])
 
                 except errors.UnknownRecommendationOption:
                     continue
