@@ -171,7 +171,7 @@ def get_item(id, **kwargs):
     return kwargs["result"][0]["n"]
 
 
-def get_tenant_items_list(tenant):
+def get_tenant_list_of_items_id(tenant):
 
     n = item_count_for_tenant(tenant=tenant)
 

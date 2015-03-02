@@ -94,7 +94,7 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
             for tenant in tenants:
 
-                items = profile.get_tenant_items_list(tenant)
+                items = profile.get_tenant_list_of_items_id(tenant)
 
                 for item_id in items:
                     writer.writerow([tenant, item_id])
@@ -229,11 +229,11 @@ class TaskSaveRecommendationResults(luigi.Task):
 
                 for row in reader:
 
-                    tenant, item_id, n_results, rtypes, rec_items, out_file = row
+                    tenant, item_id, n_results, rtypes, rec_items, file_path = row
 
                     key = ':'.join([tenant, item_id])
 
-                    with open(out_file, "r") as f:
+                    with open(file_path, "r") as f:
 
                         data = json.load(f, encoding="UTF-8")
 
@@ -250,26 +250,22 @@ class TaskSaveRecommendationResults(luigi.Task):
 
                 for row in reader:
 
-                    tenant, item_id, n_results, rtypes, rec_items, out_file = row
+                    tenant, item_id, n_results, rtypes, rec_items, file_path = row
 
                     try:
-                        os.remove(out_file)
+                        os.remove(file_path)
                     except OSError as err:
                         Logger.error(err)
                         continue
 
-            with self.output().open("w") as out_file:
+            with self.output().open("w") as file_path:
 
-                writer = csv.writer(out_file, quoting=csv.QUOTE_ALL)
+                writer = csv.writer(file_path, quoting=csv.QUOTE_ALL)
                 writer.writerow(["tenant", "n_items_processed"])
 
                 for k, v in stats.iteritems():
 
                     writer.writerow([k, v])
-
-#TODO: log success rate for each rtype
-#TODO: add task to compute success rate (At least 5 items recommended)
-#TODO: compute TR[V, P, AC] recommendations -> Different Workflow
 
 
 if __name__ == "__main__":
