@@ -181,7 +181,7 @@ class TaskComputeRecommendations(luigi.Task):
                     file_path = os.path.join(output_path, file_name)
 
                     with open(file_path, "w") as f:
-                        json.dump(tmp_items, f, encoding="UTF-8")
+                        json.dump(items, f, encoding="UTF-8")
 
                     #register computation
                     writer.writerow([tenant, item_id, len(items), ';'.join(rtypes_used),
