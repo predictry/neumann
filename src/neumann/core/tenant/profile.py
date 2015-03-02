@@ -1,5 +1,11 @@
 __author__ = 'guilherme'
 
+import os
+import os.path
+import tempfile
+import errno
+import json
+import subprocess
 import sqlalchemy
 import sqlalchemy.sql
 
@@ -199,3 +205,77 @@ def get_tenant_list_of_items_id(tenant):
     return items
 
 
+def download_tenant_items_to_a_folder(tenant):
+
+    n = item_count_for_tenant(tenant=tenant)
+
+    limit = 10000
+    skip = 0
+
+    q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
+        LABEL=store.LABEL_ITEM, TENANT=tenant
+    )
+
+    data_folder = os.path.join(tempfile.gettempdir(), '/'.join([tenant, "items"]))
+
+    try:
+
+        os.makedirs(data_folder)
+
+    except OSError as err:
+
+        if err.errno == errno.EEXIST:
+            pass
+        else:
+            Logger.error(err)
+            raise err
+
+    while n > skip:
+
+        params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
+
+        query = neo4j.Query(q, params)
+
+        r = neo4j.run_query(query, commit=False)
+
+        items = [x["item"].properties for x in r]
+
+        for item in items:
+
+            file_name = ''.join([item["id"], ".json"])
+
+            tmp_file = os.path.join(data_folder, file_name)
+
+            with open(tmp_file, "w") as fp:
+                json.dump(item, fp)
+
+        skip += limit
+
+        del items[:]
+
+    return data_folder
+
+
+def sync_tenant_items_to_s3(tenant, bucket, s3_folder, local_folder):
+
+    s3path = ''.join(["s3://", '/'.join([bucket, s3_folder, tenant, "items"])])
+
+    cmd = ["aws", "s3", "sync", local_folder, s3path]
+
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=False)
+
+    output, err = p.communicate()
+
+    if p.returncode == 1:
+
+        msg = "Error running command:\n\t{0}".format(' '.join(cmd))
+        Logger.error(msg)
+        Logger.error(err)
+
+        raise RuntimeError(err)
+
+    elif p.returncode == 0:
+
+        Logger.info("Successfully executed command:\n\t{0}".format(' '.join(cmd)))
+
+    return

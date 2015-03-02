@@ -9,3 +9,4 @@ hiredis==0.1.5
 luigi==1.0.20
 tornado==4.0.2
 boto==2.36.0
+awscli==1.7.12
