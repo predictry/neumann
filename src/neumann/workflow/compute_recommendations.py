@@ -17,6 +17,7 @@ from neumann.core.tenant import profile
 from neumann.core.recommend import item_based
 from neumann.core import errors
 from neumann.utils import config
+from neumann.utils.logger import Logger
 
 
 tempfile.tempdir = "/tmp"
@@ -251,7 +252,11 @@ class TaskSaveRecommendationResults(luigi.Task):
 
                     tenant, item_id, n_results, rtypes, rec_items, out_file = row
 
-                    os.remove(out_file)
+                    try:
+                        os.remove(out_file)
+                    except OSError as err:
+                        Logger.error(err)
+                        continue
 
             with self.output().open("w") as out_file:
 
