@@ -7,6 +7,7 @@ import errno
 import tempfile
 import csv
 import json
+import shutil
 
 import luigi
 import luigi.file
@@ -75,21 +76,21 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
         tenants = list()
 
         #get list of tenants
-        with self.input().open("r") as f:
+        with self.input().open("r") as fp:
 
-            reader = csv.reader(f)
+            reader = csv.reader(fp)
             next(reader)
 
             for row in reader:
 
-                tenant = row[0]
+                tenant, = row
 
                 tenants.append(tenant)
 
         #write configuration in output file
-        with self.output().open("w") as f:
+        with self.output().open("w") as fp:
 
-            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
             writer.writerow(["tenant", "item_id"])
 
             for tenant in tenants:
@@ -132,16 +133,16 @@ class TaskComputeRecommendations(luigi.Task):
             if exc.errno == errno.EEXIST and os.path.isdir(output_path):
                 pass
             else:
-                raise
+                raise exc
 
         #compute recommendations
-        with self.input().open("r") as in_file, self.output().open("w") as out_file:
+        with self.input().open("r") as in_file, self.output().open("w") as output_file:
 
             reader = csv.reader(in_file)
             next(reader)
 
-            writer = csv.writer(out_file, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "item_id", "n_results", "rtypes", "rec_items", "out_file"])
+            writer = csv.writer(output_file, quoting=csv.QUOTE_ALL)
+            writer.writerow(["tenant", "item_id", "n_results", "rtypes", "rec_items", "output_file"])
 
             for row in reader:
 
@@ -167,7 +168,7 @@ class TaskComputeRecommendations(luigi.Task):
                         count += len(results)
 
                     #get item ids
-                    items_id = set([item["id"] for item in tmp_items])
+                    items_id = list(set([item["id"] for item in tmp_items]))
 
                     #save output to its own json file
                     file_name = "{0}_{1}_{2}".format(self.date.__str__(), tenant, item_id)
@@ -208,64 +209,148 @@ class TaskSaveRecommendationResults(luigi.Task):
         conf = config.load_configuration()
         redis_store = conf["redis-cache"]
 
-        try:
+        r_server = redis.Redis(
+            host=redis_store["primary"]["ip_address"],
+            port=redis_store["primary"]["port"])
 
-            r_server = redis.Redis(
-                host=redis_store["primary"]["ip_address"],
-                port=redis_store["primary"]["port"])
+        stats = dict()
 
-        except redis.exceptions.ConnectionError:
-            print("Redis failed to connect to '{0}:{1}'".format(redis_store["primary"]["ip_address"],
-                                                                redis_store["primary"]["port"]))
+        with self.input().open("r") as in_file:
 
-        else:
+            reader = csv.reader(in_file)
+            next(reader)
 
-            stats = dict()
+            for row in reader:
 
-            with self.input().open("r") as in_file:
+                tenant, item_id, n_results, rtypes, rec_items, file_path = row
 
-                reader = csv.reader(in_file)
-                next(reader)
+                key = ':'.join([tenant, item_id])
 
-                for row in reader:
+                with open(file_path, "r") as f:
 
-                    tenant, item_id, n_results, rtypes, rec_items, file_path = row
+                    data = json.load(f, encoding="UTF-8")
 
-                    key = ':'.join([tenant, item_id])
-
-                    with open(file_path, "r") as f:
-
-                        data = json.load(f, encoding="UTF-8")
-
-                        if tenant not in stats:
-                            stats[tenant] = 0
-                        stats[tenant] += 1
-
-                        r_server.set(key, json.dumps(data))
-
-            with self.input().open("r") as in_file:
-
-                reader = csv.reader(in_file)
-                next(reader)
-
-                for row in reader:
-
-                    tenant, item_id, n_results, rtypes, rec_items, file_path = row
+                    if tenant not in stats:
+                        stats[tenant] = 0
+                    stats[tenant] += 1
 
                     try:
-                        os.remove(file_path)
-                    except OSError as err:
-                        Logger.error(err)
-                        continue
+                        r_server.set(key, json.dumps(data))
+                    except redis.exceptions.ConnectionError as exc:
+                        Logger.error("Redis failed to connect to '{0}:{1}'".format(redis_store["primary"]["ip_address"],
+                                                                                   redis_store["primary"]["port"]))
+                        raise exc
 
-            with self.output().open("w") as file_path:
+        with self.input().open("r") as in_file:
 
-                writer = csv.writer(file_path, quoting=csv.QUOTE_ALL)
-                writer.writerow(["tenant", "n_items_processed"])
+            reader = csv.reader(in_file)
+            next(reader)
 
-                for k, v in stats.iteritems():
+            for row in reader:
 
-                    writer.writerow([k, v])
+                tenant, item_id, n_results, rtypes, rec_items, file_path = row
+
+                try:
+                    os.remove(file_path)
+                except OSError as err:
+                    Logger.error(err)
+                    continue
+
+        with self.output().open("w") as file_path:
+
+            writer = csv.writer(file_path, quoting=csv.QUOTE_ALL)
+            writer.writerow(["tenant", "n_items_processed"])
+
+            for k, v in stats.iteritems():
+
+                writer.writerow([k, v])
+
+
+class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
+
+    date = luigi.DateParameter()
+
+    def requires(self):
+
+        return TaskRetrieveListOfTenants(self.date)
+
+    def output(self):
+
+        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+
+        file_path = os.path.join(tempfile.gettempdir(), file_name)
+
+        return luigi.LocalTarget(file_path)
+
+    def run(self):
+
+        tenant_folders = dict()
+
+        with self.input().open("r") as fp:
+
+            reader = csv.reader(fp)
+            next(reader)
+
+            for row in reader:
+
+                tenant = row[0]
+
+                path = profile.download_tenant_items_to_a_folder(tenant)
+
+                tenant_folders[tenant] = path
+
+        with self.output().open("w") as fp:
+
+            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
+            writer.writerow(["tenant", "items_folder"])
+
+            for k, v in tenant_folders.iteritems():
+
+                writer.writerow([k, v])
+
+
+class TaskUploadTenantsItemsToS3(luigi.Task):
+
+    date = luigi.DateParameter()
+
+    def requires(self):
+
+        return TaskDownloadTenantsItemsToLocalFolder(self.date)
+
+    def output(self):
+
+        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+
+        file_path = os.path.join(tempfile.gettempdir(), file_name)
+
+        return luigi.LocalTarget(file_path)
+
+    def run(self):
+
+        conf = config.load_configuration()
+        s3_config = conf["s3"]
+
+        bucket = s3_config["bucket"]
+        s3_folder = s3_config["folder"]
+
+        with self.input().open("r") as fpi, self.output().open("w") as fpo:
+
+            reader = csv.reader(fpi)
+            next(reader)
+
+            writer = csv.writer(fpo)
+            writer.writerow(["tenant", "item_id", "state"])
+
+            for row in reader:
+                tenant, items_folder = row
+
+                profile.sync_tenant_items_to_s3(tenant, bucket,s3_folder, items_folder)
+
+                try:
+                    shutil.rmtree(items_folder)
+                except OSError as err:
+                    Logger.error(err)
+                    raise err
 
 
 if __name__ == "__main__":
