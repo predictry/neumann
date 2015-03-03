@@ -339,12 +339,25 @@ class TaskUploadTenantsItemsToS3(luigi.Task):
             next(reader)
 
             writer = csv.writer(fpo)
-            writer.writerow(["tenant", "item_id", "state"])
+            writer.writerow(["tenant", "state"])
 
             for row in reader:
                 tenant, items_folder = row
 
-                profile.sync_tenant_items_to_s3(tenant, bucket,s3_folder, items_folder)
+                try:
+                    profile.sync_tenant_items_to_s3(tenant, bucket,s3_folder, items_folder)
+                except RuntimeError as exc:
+                    raise exc
+                else:
+                    writer.writerow([tenant, "processed"])
+
+        with self.input().open("r") as fp:
+
+            reader = csv.reader(fp)
+            next(reader)
+
+            for row in reader:
+                tenant, items_folder = row
 
                 try:
                     shutil.rmtree(items_folder)
