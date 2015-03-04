@@ -210,7 +210,7 @@ def download_tenant_items_to_a_folder(tenant):
 
     n = item_count_for_tenant(tenant=tenant)
 
-    limit = 5000
+    limit = 30000
     skip = 0
 
     q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
