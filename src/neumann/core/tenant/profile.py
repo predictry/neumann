@@ -2,6 +2,7 @@ __author__ = 'guilherme'
 
 import os
 import os.path
+import sys
 import tempfile
 import errno
 import json
@@ -260,7 +261,10 @@ def sync_tenant_items_to_s3(tenant, bucket, s3_folder, local_folder):
 
     s3path = ''.join(["s3://", '/'.join([bucket, s3_folder, tenant, "items"])])
 
-    cmd = ["aws", "s3", "sync", local_folder, s3path]
+    awscli = os.path.join(os.path.abspath(os.path.join(sys.executable, os.pardir)), "aws")
+    cmd = [awscli, "s3", "sync", local_folder, s3path]
+
+    Logger.info("Running command:\t{0}".format(''.join(cmd)))
 
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=False)
 
