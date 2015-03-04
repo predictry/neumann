@@ -322,6 +322,8 @@ def run_query(query, commit=False):
         Logger.error("Error in executing query:\n\t{0}".format(err))
         raise err
 
+    #todo: catch other execptions (outofmemory, wrong syntax)
+
     q = query.query
     p = {param.key: param.value for param in query.params}
 
