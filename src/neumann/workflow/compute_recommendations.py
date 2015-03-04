@@ -207,11 +207,11 @@ class TaskSaveRecommendationResults(luigi.Task):
     def run(self):
 
         conf = config.load_configuration()
-        redis_store = conf["redis-cache"]
+        redis_store = conf["redis"]
 
         r_server = redis.Redis(
-            host=redis_store["primary"]["ip_address"],
-            port=redis_store["primary"]["port"])
+            host=redis_store["host"],
+            port=redis_store["port"])
 
         stats = dict()
 
@@ -237,8 +237,8 @@ class TaskSaveRecommendationResults(luigi.Task):
                     try:
                         r_server.set(key, json.dumps(data))
                     except redis.exceptions.ConnectionError as exc:
-                        Logger.error("Redis failed to connect to '{0}:{1}'".format(redis_store["primary"]["ip_address"],
-                                                                                   redis_store["primary"]["port"]))
+                        Logger.error("Redis failed to connect to '{0}:{1}'".format(redis_store["host"],
+                                                                                   redis_store["port"]))
                         raise exc
 
         with self.input().open("r") as in_file:
