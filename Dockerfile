@@ -37,7 +37,6 @@ ADD config.json logging.json ${APPDIR}/
 ADD scripts ${APPDIR}/scripts
 ADD src ${APPDIR}/src
 ADD tests ${APPDIR}/tests
-ADD boto.cfg /home/dispatch/.boto.cfg
 ADD client.cfg /etc/luigi/luigi.cfg
 ADD crontab.conf ${APPDIR}/crontab.conf
 
