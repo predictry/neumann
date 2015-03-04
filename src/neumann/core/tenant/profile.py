@@ -216,7 +216,7 @@ def download_tenant_items_to_a_folder(tenant):
         LABEL=store.LABEL_ITEM, TENANT=tenant
     )
 
-    data_folder = os.path.join(tempfile.gettempdir(), '/'.join([tenant, "items"]))
+    data_folder = os.path.join(tempfile.gettempdir(), '/'.join(["tenants", tenant, "items"]))
 
     try:
 
