@@ -24,7 +24,11 @@ from neumann.utils.logger import Logger
 
 #TODO: add date in every factor
 
-tempfile.tempdir = "/tmp"
+if os.name == 'posix':
+    tempfile.tempdir = "/tmp"
+else:
+    tempfile.tempdir = "out"
+
 
 CSV_EXTENSION = "csv"
 
