@@ -22,8 +22,11 @@ from neumann.utils import config
 from neumann.utils.logger import Logger
 
 
+#TODO: add date in every factor
+
 tempfile.tempdir = "/tmp"
-RESPONSE_ITEMS_COUNT = 10
+
+CSV_EXTENSION = "csv"
 
 
 def task_retrieve_tenant_items_list(tenant, filename, output_queue):
@@ -52,6 +55,77 @@ def task_retrieve_tenant_items_list(tenant, filename, output_queue):
 
     output_queue.put((tenant, filename))
 
+'''
+#tenant, input file, output file, queue
+def task_compute_recommendations_for_tenant(tenant, items_filename, results_log_path, data_path, output_queue):
+
+    recommendation_types = ["oipt", "oip", "anon-oip", "oivt", "oiv", "anon-oiv"]
+    response_items_count = 10
+
+    #create output dir in temp dir
+
+    try:
+        os.mkdir(data_path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(data_path):
+            pass
+        else:
+            raise exc
+
+    if not os.path.exists(os.path.dirname(results_log_path)):
+        os.makedirs(os.path.dirname(results_log_path))
+
+    #compute recommendations
+    with open(items_filename, "r") as fpi, open(results_log_path, "w") as fpo:
+
+        reader = csv.reader(fpi)
+        next(reader)
+
+        writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
+        writer.writerow(["tenant", "item_id", "n_results", "recommendation_types", "recommended_items", "output_file"])
+
+        for row in reader:
+
+            tenant, item_id = row
+
+            try:
+
+                recommendation_types_used = list()
+                tmp_items = list()
+
+                count = 0
+                index = 0
+
+                while count < response_items_count and index < len(recommendation_types):
+
+                    results = item_based.compute_recommendation(tenant, recommendation_types[index], item_id)
+
+                    if len(results) > 0:
+                        recommendation_types_used.append(recommendation_types[index])
+                        tmp_items.extend(results)
+
+                    index += 1
+                    count += len(results)
+
+                #get item ids
+                items_id = list(set([item["id"] for item in tmp_items]))
+
+                #save output to its own json file
+                file_name = "{0}_{1}_{2}".format(self.date.__str__(), tenant, item_id)
+
+                file_path = os.path.join(output_path, file_name)
+
+                with open(file_path, "w") as f:
+                    json.dump(items_id, f, encoding="UTF-8")
+
+                #register computation
+                writer.writerow([tenant, item_id, len(items_id), ';'.join(recommendation_types_used),
+                                ';'.join(item_id for item_id in items_id), file_path])
+
+            except errors.UnknownRecommendationOption:
+                continue
+'''
+
 
 class TaskRetrieveListOfTenants(luigi.Task):
 
@@ -59,7 +133,7 @@ class TaskRetrieveListOfTenants(luigi.Task):
 
     def output(self):
 
-        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -97,7 +171,7 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
     def output(self):
 
-        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -124,7 +198,8 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
         for tenant in tenants:
 
-            filename = os.path.join(tempfile.gettempdir(), "listing", "tenants", "items", ''.join([tenant, ".csv"]))
+            filename = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__,
+                                    '.'.join([tenant, CSV_EXTENSION]))
 
             job = multiprocessing.Process(target=task_retrieve_tenant_items_list, args=(tenant, filename,
                                                                                         output_queue))
@@ -162,7 +237,6 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
             writer.writerow(["tenant", "items_list_file"])
 
-            #todo: save list of items
             while not output_queue.empty():
 
                 r = output_queue.get()
@@ -189,10 +263,7 @@ class TaskComputeRecommendations(luigi.Task):
 
     def run(self):
 
-        #todo: parallelize workflow [concurrent requests]
-        #todo: prioritize purchases (oipt, oip, anon-oip)
-
-        rtypes = ["oivt", "oiv", "anon-oiv"]
+        rtypes = ["oipt", "oip", "anon-oip", "oivt", "oiv", "anon-oiv"]
 
         #create output dir in temp dir
 
@@ -227,7 +298,7 @@ class TaskComputeRecommendations(luigi.Task):
                     count = 0
                     index = 0
 
-                    while count < RESPONSE_ITEMS_COUNT and index < len(rtypes):
+                    while count < response_items_count and index < len(rtypes):
 
                         results = item_based.compute_recommendation(tenant, rtypes[index], item_id)
 
