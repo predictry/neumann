@@ -22,8 +22,6 @@ from neumann.utils import config
 from neumann.utils.logger import Logger
 
 
-#TODO: add date in every factor
-
 if os.name == 'posix':
     tempfile.tempdir = "/tmp"
 else:
@@ -32,6 +30,7 @@ else:
 
 CSV_EXTENSION = "csv"
 JSON_EXTENSION = "json"
+VALUE_SEPARATOR = ";"
 
 
 def task_retrieve_tenant_items_list(tenant, filename, output_queue):
@@ -61,7 +60,6 @@ def task_retrieve_tenant_items_list(tenant, filename, output_queue):
     output_queue.put((tenant, filename))
 
 
-#tenant, input file, output file, queue
 def task_compute_recommendations_for_tenant(items_list_filename, results_log_dir):
 
     #todo: streamline
@@ -107,11 +105,75 @@ def task_compute_recommendations_for_tenant(items_list_filename, results_log_dir
                 items_id = list(set([item["id"] for item in tmp_items]))
 
                 #register computation
-                writer.writerow([tenant, item_id, len(items_id), ';'.join(recommendation_types_used),
-                                ';'.join(item_id for item_id in items_id)])
+                writer.writerow([tenant, item_id, len(items_id), VALUE_SEPARATOR.join(recommendation_types_used),
+                                VALUE_SEPARATOR.join(item_id for item_id in items_id)])
 
             except errors.UnknownRecommendationOption:
                 continue
+
+
+def task_store_recommendation_results(tenant, results_filename, data_dir):
+
+    #generate files
+    s3 = config.load_configuration()["s3"]
+    s3bucket = s3["bucket"]
+    s3path = os.path.join(s3["folder"], tenant, "recommendations")
+
+    tenant_items_recommendation_dir = os.path.join(data_dir, tenant)
+
+    if not os.path.exists(os.path.dirname(tenant_items_recommendation_dir)):
+        os.makedirs(os.path.dirname(tenant_items_recommendation_dir))
+
+    try:
+        os.mkdir(tenant_items_recommendation_dir)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(tenant_items_recommendation_dir):
+            pass
+        else:
+            raise exc
+
+    with open(results_filename, "r") as fp:
+
+        reader = csv.reader(fp)
+        next(reader)
+
+        for row in reader:
+
+            te, item_id, n_results, recommendation_types, recommended_items = row
+
+            filename = '.'.join([item_id, JSON_EXTENSION])
+            file_path = os.path.join(tenant_items_recommendation_dir, filename)
+
+            with open(file_path, "w") as f:
+                items = recommended_items.split(VALUE_SEPARATOR)
+
+                if len(items) == 1:
+                    if not items[0]:
+                        items = list()
+
+                json.dump(items, f, encoding="UTF-8")
+
+    #upload files
+
+    Tenant.sync_tenant_items_to_s3(tenant_items_recommendation_dir, s3bucket, s3path)
+
+    #delete generated files
+
+    with open(results_filename, "r") as fp:
+
+        reader = csv.reader(fp)
+        next(reader)
+
+        for row in reader:
+
+            te, item_id, n_results, recommendation_types, recommended_items = row
+
+            filename = '.'.join([item_id, JSON_EXTENSION])
+            file_path = os.path.join(tenant_items_recommendation_dir, filename)
+
+            os.remove(file_path)
+
+    return
 
 
 class TaskRetrieveListOfTenants(luigi.Task):
@@ -323,9 +385,8 @@ class TaskComputeRecommendations(luigi.Task):
 
         return
 
-'''
-#todo: generate files and upload --> Don't have compute rec generate files
-class TaskSaveRecommendationResults(luigi.Task):
+
+class TaskStoreRecommendationResults(luigi.Task):
 
     date = luigi.DateParameter()
 
@@ -335,7 +396,7 @@ class TaskSaveRecommendationResults(luigi.Task):
 
     def output(self):
 
-        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -343,65 +404,66 @@ class TaskSaveRecommendationResults(luigi.Task):
 
     def run(self):
 
-        conf = config.load_configuration()
-        redis_store = conf["redis"]
+        tenants = dict()
 
-        r_server = redis.Redis(
-            host=redis_store["host"],
-            port=redis_store["port"])
+        jobs = list()
+        cpu_count = multiprocessing.cpu_count()
+        data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
 
-        stats = dict()
+        with self.input().open("r") as fp:
 
-        with self.input().open("r") as in_file:
-
-            reader = csv.reader(in_file)
+            reader = csv.reader(fp)
             next(reader)
 
             for row in reader:
+                tenant, results_log_file = row
 
-                tenant, item_id, n_results, rtypes, rec_items, file_path = row
+                tenants[tenant] = results_log_file
 
-                key = ':'.join([tenant, item_id])
+        for k, v in tenants.iteritems():
 
-                with open(file_path, "r") as f:
+            tenant, results_log_file = k, v
 
-                    data = json.load(f, encoding="UTF-8")
+            job = multiprocessing.Process(target=task_store_recommendation_results, args=(tenant, results_log_file,
+                                                                                          data_dir))
+            jobs.append(job)
 
-                    if tenant not in stats:
-                        stats[tenant] = 0
-                    stats[tenant] += 1
+        if cpu_count > 1:
 
-                    try:
-                        r_server.set(key, json.dumps(data))
-                    except redis.exceptions.ConnectionError as exc:
-                        Logger.error("Redis failed to connect to '{0}:{1}'".format(redis_store["host"],
-                                                                                   redis_store["port"]))
-                        raise exc
+            while jobs:
 
-        with self.input().open("r") as in_file:
+                upper_bound = cpu_count - 1 if len(jobs) > cpu_count else len(jobs) - 1
 
-            reader = csv.reader(in_file)
-            next(reader)
+                #there is only one job left
+                if upper_bound == 0:
+                    upper_bound = 1
 
-            for row in reader:
+                for job in jobs[0:upper_bound]:
+                    job.start()
 
-                tenant, item_id, n_results, rtypes, rec_items, file_path = row
+                for job in jobs[0:upper_bound]:
+                    job.join()
 
-                try:
-                    os.remove(file_path)
-                except OSError as err:
-                    Logger.error(err)
-                    continue
+                del jobs[0:upper_bound]
+        else:
 
-        with self.output().open("w") as file_path:
+            for job in jobs:
+                job.start()
+                job.join()
 
-            writer = csv.writer(file_path, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "n_items_processed"])
+        with self.output().open("w") as fp:
 
-            for k, v in stats.iteritems():
+            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
+            writer.writerow(["tenant"])
 
-                writer.writerow([k, v])
+            for k, v in tenants.iteritems():
 
+                tenant, results_log_file = k, v
+
+                writer.writerow([tenant, results_log_file])
+
+
+'''
 class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
 
     date = luigi.DateParameter()
