@@ -31,6 +31,7 @@ else:
 
 
 CSV_EXTENSION = "csv"
+JSON_EXTENSION = "json"
 
 
 def task_retrieve_tenant_items_list(tenant, filename, output_queue):
@@ -59,34 +60,25 @@ def task_retrieve_tenant_items_list(tenant, filename, output_queue):
 
     output_queue.put((tenant, filename))
 
-'''
-#tenant, input file, output file, queue
-def task_compute_recommendations_for_tenant(tenant, items_filename, results_log_path, data_path, output_queue):
 
+#tenant, input file, output file, queue
+def task_compute_recommendations_for_tenant(items_list_filename, results_log_dir):
+
+    #todo: streamline
     recommendation_types = ["oipt", "oip", "anon-oip", "oivt", "oiv", "anon-oiv"]
     response_items_count = 10
 
-    #create output dir in temp dir
-
-    try:
-        os.mkdir(data_path)
-    except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(data_path):
-            pass
-        else:
-            raise exc
-
-    if not os.path.exists(os.path.dirname(results_log_path)):
-        os.makedirs(os.path.dirname(results_log_path))
+    if not os.path.exists(os.path.dirname(results_log_dir)):
+        os.makedirs(os.path.dirname(results_log_dir))
 
     #compute recommendations
-    with open(items_filename, "r") as fpi, open(results_log_path, "w") as fpo:
+    with open(items_list_filename, "r") as fpi, open(results_log_dir, "w") as fpo:
 
         reader = csv.reader(fpi)
         next(reader)
 
         writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
-        writer.writerow(["tenant", "item_id", "n_results", "recommendation_types", "recommended_items", "output_file"])
+        writer.writerow(["tenant", "item_id", "n_results", "recommendation_types", "recommended_items"])
 
         for row in reader:
 
@@ -114,21 +106,12 @@ def task_compute_recommendations_for_tenant(tenant, items_filename, results_log_
                 #get item ids
                 items_id = list(set([item["id"] for item in tmp_items]))
 
-                #save output to its own json file
-                file_name = "{0}_{1}_{2}".format(self.date.__str__(), tenant, item_id)
-
-                file_path = os.path.join(output_path, file_name)
-
-                with open(file_path, "w") as f:
-                    json.dump(items_id, f, encoding="UTF-8")
-
                 #register computation
                 writer.writerow([tenant, item_id, len(items_id), ';'.join(recommendation_types_used),
-                                ';'.join(item_id for item_id in items_id), file_path])
+                                ';'.join(item_id for item_id in items_id)])
 
             except errors.UnknownRecommendationOption:
                 continue
-'''
 
 
 class TaskRetrieveListOfTenants(luigi.Task):
@@ -156,7 +139,7 @@ class TaskRetrieveListOfTenants(luigi.Task):
         with self.output().open("w") as f:
 
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenants"])
+            writer.writerow(["tenant"])
 
             for tenant in active_tenants_names:
 
@@ -183,9 +166,9 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
     def run(self):
 
-        cpu_count = multiprocessing.cpu_count()
         tenants = list()
         jobs = list()
+        cpu_count = multiprocessing.cpu_count()
         output_queue = multiprocessing.Queue()
 
         #get list of tenants
@@ -248,7 +231,7 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
         return
 
-'''
+
 class TaskComputeRecommendations(luigi.Task):
 
     date = luigi.DateParameter()
@@ -259,7 +242,7 @@ class TaskComputeRecommendations(luigi.Task):
 
     def output(self):
 
-        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -267,11 +250,13 @@ class TaskComputeRecommendations(luigi.Task):
 
     def run(self):
 
-        rtypes = ["oipt", "oip", "anon-oip", "oivt", "oiv", "anon-oiv"]
+        tenants = dict()
+        jobs = list()
+        cpu_count = multiprocessing.cpu_count()
 
         #create output dir in temp dir
 
-        output_path = os.path.join(tempfile.gettempdir(), self.date.__str__())
+        output_path = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
 
         try:
             os.mkdir(output_path)
@@ -281,59 +266,65 @@ class TaskComputeRecommendations(luigi.Task):
             else:
                 raise exc
 
-        #compute recommendations
-        with self.input().open("r") as in_file, self.output().open("w") as output_file:
+        with self.input().open("r") as fp:
 
-            reader = csv.reader(in_file)
+            reader = csv.reader(fp)
             next(reader)
 
-            writer = csv.writer(output_file, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "item_id", "n_results", "rtypes", "rec_items", "output_file"])
-
             for row in reader:
+                tenant, items_list_filename = row
 
-                tenant, item_id = row
+                tenants[tenant] = items_list_filename
 
-                try:
+        with self.output().open("w") as fp:
 
-                    rtypes_used = list()
-                    tmp_items = list()
+            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
+            writer.writerow(["tenant", "results_log_file"])
 
-                    count = 0
-                    index = 0
+            for k, v in tenants.iteritems():
+                tenant, items_list_filename = k, v
 
-                    while count < response_items_count and index < len(rtypes):
+                results_log_file = os.path.join(output_path, '.'.join([tenant, CSV_EXTENSION]))
 
-                        results = item_based.compute_recommendation(tenant, rtypes[index], item_id)
+                job = multiprocessing.Process(target=task_compute_recommendations_for_tenant, args=(items_list_filename,
+                                                                                                    results_log_file))
+                jobs.append(job)
 
-                        if len(results) > 0:
-                            rtypes_used.append(rtypes[index])
-                            tmp_items.extend(results)
+            #compute recommendations
+            if cpu_count > 1:
 
-                        index += 1
-                        count += len(results)
+                while jobs:
 
-                    #get item ids
-                    items_id = list(set([item["id"] for item in tmp_items]))
+                    upper_bound = cpu_count - 1 if len(jobs) > cpu_count else len(jobs) - 1
 
-                    #save output to its own json file
-                    file_name = "{0}_{1}_{2}".format(self.date.__str__(), tenant, item_id)
+                    #there is only one job left
+                    if upper_bound == 0:
+                        upper_bound = 1
 
-                    file_path = os.path.join(output_path, file_name)
+                    for job in jobs[0:upper_bound]:
+                        job.start()
 
-                    with open(file_path, "w") as f:
-                        json.dump(items_id, f, encoding="UTF-8")
+                    for job in jobs[0:upper_bound]:
+                        job.join()
 
-                    #register computation
-                    writer.writerow([tenant, item_id, len(items_id), ';'.join(rtypes_used),
-                                    ';'.join(item_id for item_id in items_id), file_path])
+                    del jobs[0:upper_bound]
+            else:
 
-                except errors.UnknownRecommendationOption:
-                    continue
+                for job in jobs:
+                    job.start()
+                    job.join()
+
+            for k, v in tenants.iteritems():
+                tenant, items_list_filename = k, v
+
+                results_log_file = os.path.join(output_path, '.'.join([tenant, CSV_EXTENSION]))
+
+                writer.writerow([tenant, results_log_file])
 
         return
 
-
+'''
+#todo: generate files and upload --> Don't have compute rec generate files
 class TaskSaveRecommendationResults(luigi.Task):
 
     date = luigi.DateParameter()
@@ -410,7 +401,6 @@ class TaskSaveRecommendationResults(luigi.Task):
             for k, v in stats.iteritems():
 
                 writer.writerow([k, v])
-
 
 class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
 
