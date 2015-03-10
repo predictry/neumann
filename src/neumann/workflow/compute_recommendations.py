@@ -8,13 +8,14 @@ import tempfile
 import csv
 import json
 import shutil
+import multiprocessing
 
 import luigi
 import luigi.file
 import redis
 import redis.exceptions
 
-from neumann.core.tenant import profile
+from neumann.core.entities import tenant as Tenant
 from neumann.core.recommend import item_based
 from neumann.core import errors
 from neumann.utils import config
@@ -23,6 +24,33 @@ from neumann.utils.logger import Logger
 
 tempfile.tempdir = "/tmp"
 RESPONSE_ITEMS_COUNT = 10
+
+
+def task_retrieve_tenant_items_list(tenant, filename, output_queue):
+
+    n = Tenant.get_item_count_for_tenant(tenant=tenant)
+
+    limit = 10000
+    skip = 0
+
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
+
+    with open(filename, "w") as fp:
+
+        writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
+        writer.writerow(["tenant", "item_id"])
+
+        while n > skip:
+
+            items = Tenant.get_tenant_list_of_items_id(tenant, skip, limit)
+
+            for item_id in items:
+                writer.writerow([tenant, item_id])
+
+            skip += limit
+
+    output_queue.put((tenant, filename))
 
 
 class TaskRetrieveListOfTenants(luigi.Task):
@@ -40,13 +68,17 @@ class TaskRetrieveListOfTenants(luigi.Task):
     def run(self):
 
         #get list of active tenants from graph db store
-        active_tenants_names = profile.get_active_tenants_names()
+
+        active_tenants_names = Tenant.get_active_tenants()
+
+        if not os.path.exists(os.path.dirname(self.output().path)):
+            os.makedirs(os.path.dirname(self.output().path))
 
         #write tenants out to file
         with self.output().open("w") as f:
 
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant"])
+            writer.writerow(["tenants"])
 
             for tenant in active_tenants_names:
 
@@ -73,7 +105,10 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
     def run(self):
 
+        cpu_count = multiprocessing.cpu_count()
         tenants = list()
+        jobs = list()
+        output_queue = multiprocessing.Queue()
 
         #get list of tenants
         with self.input().open("r") as fp:
@@ -87,22 +122,55 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
                 tenants.append(tenant)
 
-        #write configuration in output file
+        for tenant in tenants:
+
+            filename = os.path.join(tempfile.gettempdir(), "listing", "tenants", "items", ''.join([tenant, ".csv"]))
+
+            job = multiprocessing.Process(target=task_retrieve_tenant_items_list, args=(tenant, filename,
+                                                                                        output_queue))
+
+            jobs.append(job)
+
+        if cpu_count > 1:
+
+            while jobs:
+
+                upper_bound = cpu_count - 1 if len(jobs) > cpu_count else len(jobs) - 1
+
+                #there is only one job left
+                if upper_bound == 0:
+                    upper_bound = 1
+
+                for job in jobs[0:upper_bound]:
+                    job.start()
+
+                for job in jobs[0:upper_bound]:
+                    job.join()
+
+                del jobs[0:upper_bound]
+        else:
+
+            for job in jobs:
+                job.start()
+                job.join()
+
+        if not os.path.exists(os.path.dirname(self.output().path)):
+            os.makedirs(os.path.dirname(self.output().path))
+
         with self.output().open("w") as fp:
 
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "item_id"])
+            writer.writerow(["tenant", "items_list_file"])
 
-            for tenant in tenants:
+            #todo: save list of items
+            while not output_queue.empty():
 
-                items = profile.get_tenant_list_of_items_id(tenant)
-
-                for item_id in items:
-                    writer.writerow([tenant, item_id])
+                r = output_queue.get()
+                writer.writerow([r[0], r[1]])
 
         return
 
-
+'''
 class TaskComputeRecommendations(luigi.Task):
 
     date = luigi.DateParameter()
@@ -120,6 +188,9 @@ class TaskComputeRecommendations(luigi.Task):
         return luigi.LocalTarget(file_path)
 
     def run(self):
+
+        #todo: parallelize workflow [concurrent requests]
+        #todo: prioritize purchases (oipt, oip, anon-oip)
 
         rtypes = ["oivt", "oiv", "anon-oiv"]
 
@@ -295,7 +366,7 @@ class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
 
                 tenant = row[0]
 
-                path = profile.download_tenant_items_to_a_folder(tenant)
+                path = tenant.download_tenant_items_to_a_folder(tenant)
 
                 tenant_folders[tenant] = path
 
@@ -345,7 +416,7 @@ class TaskUploadTenantsItemsToS3(luigi.Task):
                 tenant, items_folder = row
 
                 try:
-                    profile.sync_tenant_items_to_s3(tenant, bucket,s3_folder, items_folder)
+                    tenant.sync_tenant_items_to_s3(tenant, bucket, s3_folder, items_folder)
                 except RuntimeError as exc:
                     raise exc
                 else:
@@ -364,7 +435,7 @@ class TaskUploadTenantsItemsToS3(luigi.Task):
                 except OSError as err:
                     Logger.error(err)
                     raise err
-
+'''
 
 if __name__ == "__main__":
 
