@@ -7,19 +7,16 @@ import errno
 import tempfile
 import csv
 import json
-import shutil
 import multiprocessing
 
 import luigi
 import luigi.file
-import redis
-import redis.exceptions
 
 from neumann.core.entities import tenant as Tenant
 from neumann.core.recommend import item_based
+from neumann.core import aws
 from neumann.core import errors
 from neumann.utils import config
-from neumann.utils.logger import Logger
 
 
 if os.name == 'posix':
@@ -62,7 +59,6 @@ def task_retrieve_tenant_items_list(tenant, filename, output_queue):
 
 def task_compute_recommendations_for_tenant(items_list_filename, results_log_dir):
 
-    #todo: streamline
     recommendation_types = ["oipt", "oip", "anon-oip", "oivt", "oiv", "anon-oiv"]
     response_items_count = 10
 
@@ -155,7 +151,7 @@ def task_store_recommendation_results(tenant, results_filename, data_dir):
 
     #upload files
 
-    Tenant.sync_tenant_items_to_s3(tenant_items_recommendation_dir, s3bucket, s3path)
+    aws.sync_tenant_items_to_s3(tenant_items_recommendation_dir, s3bucket, s3path)
 
     #delete generated files
 

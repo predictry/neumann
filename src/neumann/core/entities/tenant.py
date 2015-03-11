@@ -77,6 +77,7 @@ def get_tenant_list_of_items_id(tenant, skip=0, limit=10):
     return items
 
 
+#todo: refactor
 def download_tenant_items_to_a_folder(tenant):
 
     #TODO: implement paging (tenant, limit, skip)
@@ -129,29 +130,3 @@ def download_tenant_items_to_a_folder(tenant):
     return data_folder
 
 
-def sync_tenant_items_to_s3(tenant, bucket, s3_folder, local_folder):
-
-    s3path = ''.join(["s3://", '/'.join([bucket, s3_folder, tenant, "items"])])
-
-    awscli = os.path.join(os.path.abspath(os.path.join(sys.executable, os.pardir)), "aws")
-    cmd = [awscli, "s3", "sync", local_folder, s3path]
-
-    Logger.info("Running command:\t{0}".format(''.join(cmd)))
-
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=False)
-
-    output, err = p.communicate()
-
-    if p.returncode == 1:
-
-        msg = "Error running command:\n\t{0}".format(' '.join(cmd))
-        Logger.error(msg)
-        Logger.error(err)
-
-        raise RuntimeError(err)
-
-    elif p.returncode == 0:
-
-        Logger.info("Successfully executed command:\n\t{0}".format(' '.join(cmd)))
-
-    return
