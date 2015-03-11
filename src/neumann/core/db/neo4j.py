@@ -251,7 +251,7 @@ class Parameter(object):
 
     def __repr__(self):
 
-        return "Parameter({0}, {1})".format(self.key, self.value)
+        return "Parameter({0}={1})".format(self.key, self.value)
 
     def __eq__(self, other):
 
