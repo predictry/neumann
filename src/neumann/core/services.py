@@ -76,23 +76,10 @@ class StoreService(object):
         return items
 
     @classmethod
-    def download_tenant_items_to_a_folder(cls, tenant):
-        #implement paging?
-        n = cls.get_item_count_for_tenant(tenant=tenant)
-
-        limit = 30000
-        skip = 0
-
-        q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
-            LABEL=store.LABEL_ITEM, TENANT=tenant
-        )
-
-        data_folder = os.path.join(tempfile.gettempdir(), '/'.join(["tenants", tenant, "items"]))
+    def download_tenant_items_to_a_folder(cls, tenant, dir, skip=0, limit=10):
 
         try:
-
-            os.makedirs(data_folder)
-
+            os.makedirs(dir)
         except OSError as err:
 
             if err.errno == errno.EEXIST:
@@ -101,27 +88,29 @@ class StoreService(object):
                 Logger.error(err)
                 raise err
 
-        while n > skip:
+        params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
+        q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
+            LABEL=store.LABEL_ITEM, TENANT=tenant
+        )
 
-            params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
+        query = neo4j.Query(q, params)
 
-            query = neo4j.Query(q, params)
+        r = neo4j.run_query(query, commit=False)
 
-            r = neo4j.run_query(query, commit=False)
+        items = [x["item"].properties for x in r]
+        paths = list()
 
-            items = [x["item"].properties for x in r]
+        for item in items:
 
-            for item in items:
+            file_name = '.'.join([item["id"], "json"])
 
-                file_name = ''.join([item["id"], ".json"])
+            tmp_file = os.path.join(dir, file_name)
 
-                tmp_file = os.path.join(data_folder, file_name)
+            paths.append(tmp_file)
 
-                with open(tmp_file, "w") as fp:
-                    json.dump(item, fp)
+            with open(tmp_file, "w") as fp:
+                json.dump(item, fp)
 
-            skip += limit
+        del items[:]
 
-            del items[:]
-
-        return data_folder
+        return paths

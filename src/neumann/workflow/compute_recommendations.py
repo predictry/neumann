@@ -172,6 +172,20 @@ def task_store_recommendation_results(tenant, results_filename, data_dir):
     return
 
 
+def task_download_tenant_items_to_local_folder(tenant, data_dir):
+
+    n = StoreService.get_item_count_for_tenant(tenant=tenant)
+
+    limit = 10000
+    skip = 0
+
+    while n > skip:
+
+        StoreService.download_tenant_items_to_a_folder(tenant, data_dir, skip=skip, limit=limit)
+
+        skip += limit
+
+
 class TaskRetrieveListOfTenants(luigi.Task):
 
     date = luigi.DateParameter()
@@ -401,7 +415,6 @@ class TaskStoreRecommendationResults(luigi.Task):
     def run(self):
 
         tenants = dict()
-
         jobs = list()
         cpu_count = multiprocessing.cpu_count()
         data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
@@ -459,7 +472,6 @@ class TaskStoreRecommendationResults(luigi.Task):
                 writer.writerow([tenant, results_log_file])
 
 
-'''
 class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
 
     date = luigi.DateParameter()
@@ -470,7 +482,7 @@ class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
 
     def output(self):
 
-        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
+        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -478,7 +490,11 @@ class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
 
     def run(self):
 
-        tenant_folders = dict()
+        jobs = list()
+        cpu_count = multiprocessing.cpu_count()
+        data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
+
+        tenants = dict()
 
         with self.input().open("r") as fp:
 
@@ -488,21 +504,45 @@ class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
             for row in reader:
 
                 tenant = row[0]
+                items_dir = os.path.join(data_dir, tenant)
+                tenants[tenant] = dir
 
-                path = tenant.download_tenant_items_to_a_folder(tenant)
+                job = multiprocessing.Process(target=task_download_tenant_items_to_local_folder, args=(tenant,
+                                                                                                       items_dir))
+                jobs.append(job)
 
-                tenant_folders[tenant] = path
+        if cpu_count > 1:
+
+            while jobs:
+
+                upper_bound = cpu_count - 1 if len(jobs) > cpu_count else len(jobs) - 1
+
+                #there is only one job left
+                if upper_bound == 0:
+                    upper_bound = 1
+
+                for job in jobs[0:upper_bound]:
+                    job.start()
+
+                for job in jobs[0:upper_bound]:
+                    job.join()
+
+                del jobs[0:upper_bound]
+        else:
+
+            for job in jobs:
+                job.start()
+                job.join()
 
         with self.output().open("w") as fp:
 
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "items_folder"])
+            writer.writerow(["tenant", "items_dir"])
 
-            for k, v in tenant_folders.iteritems():
-
+            for k, v in tenants.iteritems():
                 writer.writerow([k, v])
 
-
+'''
 class TaskUploadTenantsItemsToS3(luigi.Task):
 
     date = luigi.DateParameter()
