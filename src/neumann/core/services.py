@@ -78,16 +78,6 @@ class StoreService(object):
     @classmethod
     def download_tenant_items_to_a_folder(cls, tenant, dir, skip=0, limit=10):
 
-        try:
-            os.makedirs(dir)
-        except OSError as err:
-
-            if err.errno == errno.EEXIST:
-                pass
-            else:
-                Logger.error(err)
-                raise err
-
         params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
         q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
             LABEL=store.LABEL_ITEM, TENANT=tenant

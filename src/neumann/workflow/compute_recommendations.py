@@ -5,6 +5,7 @@ import os
 import os.path
 import errno
 import tempfile
+import shutil
 import csv
 import json
 import multiprocessing
@@ -151,7 +152,7 @@ def task_store_recommendation_results(tenant, results_filename, data_dir):
 
     #upload files
 
-    aws.sync_tenant_items_to_s3(tenant_items_recommendation_dir, s3bucket, s3path)
+    aws.sync(tenant_items_recommendation_dir, s3bucket, s3path)
 
     #delete generated files
 
@@ -172,18 +173,40 @@ def task_store_recommendation_results(tenant, results_filename, data_dir):
     return
 
 
-def task_download_tenant_items_to_local_folder(tenant, data_dir):
+def task_sync_items_store_with_s3(tenant, data_dir):
 
+    s3 = config.load_configuration()["s3"]
+    s3bucket = s3["bucket"]
+    s3path = os.path.join(s3["folder"], tenant, "items")
+
+    items_dir = os.path.join(data_dir, tenant)
     n = StoreService.get_item_count_for_tenant(tenant=tenant)
 
-    limit = 10000
+    limit = 5000
     skip = 0
+
+    if not os.path.exists(os.path.dirname(items_dir)):
+        os.makedirs(os.path.dirname(items_dir))
+
+    try:
+        os.mkdir(items_dir)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(items_dir):
+            pass
+        else:
+            raise exc
 
     while n > skip:
 
-        StoreService.download_tenant_items_to_a_folder(tenant, data_dir, skip=skip, limit=limit)
+        StoreService.download_tenant_items_to_a_folder(tenant, items_dir, skip=skip, limit=limit)
 
         skip += limit
+
+    aws.sync(items_dir, s3bucket, s3path)
+
+    shutil.rmtree(items_dir)
+
+    return
 
 
 class TaskRetrieveListOfTenants(luigi.Task):
@@ -472,7 +495,7 @@ class TaskStoreRecommendationResults(luigi.Task):
                 writer.writerow([tenant, results_log_file])
 
 
-class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
+class TaskSyncItemsStoreWithS3(luigi.Task):
 
     date = luigi.DateParameter()
 
@@ -494,7 +517,7 @@ class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
         cpu_count = multiprocessing.cpu_count()
         data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
 
-        tenants = dict()
+        tenants = list()
 
         with self.input().open("r") as fp:
 
@@ -504,11 +527,9 @@ class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
             for row in reader:
 
                 tenant = row[0]
-                items_dir = os.path.join(data_dir, tenant)
-                tenants[tenant] = dir
+                tenants.append(tenant)
 
-                job = multiprocessing.Process(target=task_download_tenant_items_to_local_folder, args=(tenant,
-                                                                                                       items_dir))
+                job = multiprocessing.Process(target=task_sync_items_store_with_s3, args=(tenant, data_dir))
                 jobs.append(job)
 
         if cpu_count > 1:
@@ -537,69 +558,14 @@ class TaskDownloadTenantsItemsToLocalFolder(luigi.Task):
         with self.output().open("w") as fp:
 
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "items_dir"])
+            writer.writerow(["tenant"])
 
-            for k, v in tenants.iteritems():
-                writer.writerow([k, v])
+            for tenant in tenants:
+                writer.writerow([tenant])
 
-'''
-class TaskUploadTenantsItemsToS3(luigi.Task):
-
-    date = luigi.DateParameter()
-
-    def requires(self):
-
-        return TaskDownloadTenantsItemsToLocalFolder(self.date)
-
-    def output(self):
-
-        file_name = "{0}_{1}".format(self.date, self.__class__.__name__)
-
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
-
-        return luigi.LocalTarget(file_path)
-
-    def run(self):
-
-        conf = config.load_configuration()
-        s3_config = conf["s3"]
-
-        bucket = s3_config["bucket"]
-        s3_folder = s3_config["folder"]
-
-        with self.input().open("r") as fpi, self.output().open("w") as fpo:
-
-            reader = csv.reader(fpi)
-            next(reader)
-
-            writer = csv.writer(fpo)
-            writer.writerow(["tenant", "state"])
-
-            for row in reader:
-                tenant, items_folder = row
-
-                try:
-                    tenant.sync_tenant_items_to_s3(tenant, bucket, s3_folder, items_folder)
-                except RuntimeError as exc:
-                    raise exc
-                else:
-                    writer.writerow([tenant, "processed"])
-
-        with self.input().open("r") as fp:
-
-            reader = csv.reader(fp)
-            next(reader)
-
-            for row in reader:
-                tenant, items_folder = row
-
-                try:
-                    shutil.rmtree(items_folder)
-                except OSError as err:
-                    Logger.error(err)
-                    raise err
-'''
 
 if __name__ == "__main__":
 
     luigi.run()
+
+#todo: add logging
