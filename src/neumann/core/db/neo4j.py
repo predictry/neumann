@@ -324,7 +324,7 @@ def run_query(query, commit=False):
 
     #todo: catch other execptions (outofmemory, wrong syntax)
 
-    q = query.query
+    q = query.statement
     p = {param.key: param.value for param in query.params}
 
     tx.append(q, p)
