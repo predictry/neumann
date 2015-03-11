@@ -2,7 +2,7 @@ __author__ = 'guilherme'
 
 import re
 
-from py2neo import Graph, Node, Relationship
+from py2neo import Graph, Node, Relationship, rewrite
 from py2neo.packages.httpstream.http import SocketError
 
 from neumann.core import errors
@@ -24,7 +24,18 @@ def get_connection():
     conf = config.load_configuration()
 
     try:
-        db_conn = Graph(conf["neo4j"]["endpoints"]["data"])
+
+        host = conf["neo4j"]["host"]
+        port = conf["neo4j"]["port"]
+        endpoint = conf["neo4j"]["endpoint"]
+        protocol = conf["neo4j"]["protocol"]
+        uri = "{0}://{1}:{2}/{3}".format(protocol, host, port, endpoint)
+
+        db_conn = Graph(uri)
+
+        #neo4j bug
+
+        rewrite(("http", "0.0.0.0", 7474), (protocol, host, port))
 
     except SocketError as err:
         raise err
