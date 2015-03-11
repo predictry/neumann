@@ -289,7 +289,7 @@ class CypherQuery(object):
 
     def __call__(self, f):
 
-        def wrapped_f(**kwargs):
+        def wrapped_f(*args, **kwargs):
 
             params = []
 
@@ -300,7 +300,7 @@ class CypherQuery(object):
 
             r = run_query(query, self.__commit)
 
-            return f(result=r, **kwargs)
+            return f(result=r, *args, **kwargs)
 
         return wrapped_f
 
