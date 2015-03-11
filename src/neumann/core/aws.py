@@ -25,7 +25,7 @@ def upload_file_to_s3(bucket_name, key, fp):
     return
 
 
-def sync_tenant_items_to_s3(dir, bucket, s3path):
+def sync(dir, bucket, s3path):
 
     s3path = os.path.join("s3://", bucket, s3path)
 
