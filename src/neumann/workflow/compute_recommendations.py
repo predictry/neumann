@@ -12,7 +12,7 @@ import multiprocessing
 import luigi
 import luigi.file
 
-from neumann.core.entities import tenant as Tenant
+from neumann.core.services import StoreService
 from neumann.core.recommend import item_based
 from neumann.core import aws
 from neumann.core import errors
@@ -32,7 +32,7 @@ VALUE_SEPARATOR = ";"
 
 def task_retrieve_tenant_items_list(tenant, filename, output_queue):
 
-    n = Tenant.get_item_count_for_tenant(tenant=tenant)
+    n = StoreService.get_item_count_for_tenant(tenant=tenant)
 
     limit = 10000
     skip = 0
@@ -47,7 +47,7 @@ def task_retrieve_tenant_items_list(tenant, filename, output_queue):
 
         while n > skip:
 
-            items = Tenant.get_tenant_list_of_items_id(tenant, skip, limit)
+            items = StoreService.get_tenant_list_of_items_id(tenant, skip, limit)
 
             for item_id in items:
                 writer.writerow([tenant, item_id])
@@ -188,7 +188,7 @@ class TaskRetrieveListOfTenants(luigi.Task):
 
         #get list of active tenants from graph db store
 
-        active_tenants_names = Tenant.get_active_tenants()
+        active_tenants_names = StoreService.get_active_tenants()
 
         if not os.path.exists(os.path.dirname(self.output().path)):
             os.makedirs(os.path.dirname(self.output().path))
