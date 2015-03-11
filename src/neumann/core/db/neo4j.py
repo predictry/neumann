@@ -274,17 +274,17 @@ class Query(object):
 
     """
 
-    def __init__(self, query, params):
+    def __init__(self, statement, params):
 
-        self.query = query
+        self.statement = statement
         self.params = params
 
 
 class CypherQuery(object):
 
-    def __init__(self, query, commit=False):
+    def __init__(self, statement, commit=False):
 
-        self.__query = query
+        self.__statement = statement
         self.__commit = commit
 
     def __call__(self, f):
@@ -296,7 +296,7 @@ class CypherQuery(object):
             for key, value in kwargs.iteritems():
                 params.append(Parameter(key, value))
 
-            query = Query(self.__query, params)
+            query = Query(self.__statement, params)
 
             r = run_query(query, self.__commit)
 
@@ -352,10 +352,10 @@ def run_batch_query(queries, commit):
         raise err
 
     for query in queries:
-        q = query.query
+        statement = query.statement
         params = {param.key: param.value for param in query.params}
 
-        tx.append(q, params)
+        tx.append(statement, params)
 
     #notice that we don't take the first result only, but all of them
     result = tx.process()

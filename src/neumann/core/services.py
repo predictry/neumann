@@ -61,13 +61,13 @@ class StoreService(object):
     @classmethod
     def get_tenant_list_of_items_id(cls, tenant, skip=0, limit=10):
 
-        q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n.id AS id SKIP {{skip}} LIMIT {{limit}}".format(
+        statement = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n.id AS id SKIP {{skip}} LIMIT {{limit}}".format(
             LABEL=store.LABEL_ITEM, TENANT=tenant
         )
 
         params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
 
-        query = neo4j.Query(q, params)
+        query = neo4j.Query(statement, params)
 
         r = neo4j.run_query(query)
 
@@ -79,11 +79,11 @@ class StoreService(object):
     def download_tenant_items_to_a_folder(cls, tenant, dir, skip=0, limit=10):
 
         params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
-        q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
+        statement = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
             LABEL=store.LABEL_ITEM, TENANT=tenant
         )
 
-        query = neo4j.Query(q, params)
+        query = neo4j.Query(statement, params)
 
         r = neo4j.run_query(query, commit=False)
 

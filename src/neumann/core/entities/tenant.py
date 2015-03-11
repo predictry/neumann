@@ -62,13 +62,13 @@ def get_item_node(id, **kwargs):
 #todo: refactor: retrieve property of entity
 def get_tenant_list_of_items_id(tenant, skip=0, limit=10):
 
-    q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n.id AS id SKIP {{skip}} LIMIT {{limit}}".format(
+    statement = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n.id AS id SKIP {{skip}} LIMIT {{limit}}".format(
         LABEL=store.LABEL_ITEM, TENANT=tenant
     )
 
     params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
 
-    query = neo4j.Query(q, params)
+    query = neo4j.Query(statement, params)
 
     r = neo4j.run_query(query)
 
@@ -86,7 +86,7 @@ def download_tenant_items_to_a_folder(tenant):
     limit = 30000
     skip = 0
 
-    q = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
+    statement = "MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}".format(
         LABEL=store.LABEL_ITEM, TENANT=tenant
     )
 
@@ -108,7 +108,7 @@ def download_tenant_items_to_a_folder(tenant):
 
         params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
 
-        query = neo4j.Query(q, params)
+        query = neo4j.Query(statement, params)
 
         r = neo4j.run_query(query, commit=False)
 

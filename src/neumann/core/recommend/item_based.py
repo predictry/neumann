@@ -36,7 +36,7 @@ def __rank_most_popular_items(data, key, collection=False, n=5):
 
 def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
-    q = list()
+    statements = list()
     params = list()
 
     #other items viewed/purchased together
@@ -58,7 +58,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        q.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
+        statements.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
                                  ITEM_LABEL=store.LABEL_ITEM, REL=action(rtype)))
 
         params.append(neo4j.Parameter("item_id", item_id))
@@ -83,7 +83,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        q.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
+        statements.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
                                  ITEM_LABEL=store.LABEL_ITEM, USER_LABEL=store.LABEL_USER,
                                  REL=action(rtype)))
 
@@ -106,7 +106,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        q.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
+        statements.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
                                  ITEM_LABEL=store.LABEL_ITEM, AGENT_LABEL=store.LABEL_AGENT,
                                  REL=action(rtype)))
 
@@ -134,7 +134,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        q.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
+        statements.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
                                  ITEM_LABEL=store.LABEL_ITEM, REL=action(rtype)))
 
         params.append(neo4j.Parameter("n_actions", 1000))
@@ -145,7 +145,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
         raise errors.UnknownRecommendationOption("Recommendation option `{0}` isn't recognized".format(rtype))
 
-    return neo4j.Query(''.join(q), params)
+    return neo4j.Query(''.join(statements), params)
 
 
 def compute_recommendation(tenant, rtype, item_id, filters=None, limit=None, fields=None):
