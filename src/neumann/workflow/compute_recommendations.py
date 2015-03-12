@@ -376,8 +376,8 @@ class TaskComputeRecommendations(luigi.Task):
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
             writer.writerow(["tenant", "results_log_file"])
 
-            for k, v in tenants.iteritems():
-                tenant, items_list_filename = k, v
+            for k in tenants:
+                tenant, items_list_filename = k, tenants[k]
 
                 results_log_file = os.path.join(output_path, '.'.join([tenant, CSV_EXTENSION]))
 
@@ -409,8 +409,8 @@ class TaskComputeRecommendations(luigi.Task):
                     job.start()
                     job.join()
 
-            for k, v in tenants.iteritems():
-                tenant, items_list_filename = k, v
+            for k in tenants:
+                tenant, items_list_filename = k, tenants[k]
 
                 results_log_file = os.path.join(output_path, '.'.join([tenant, CSV_EXTENSION]))
 
@@ -452,9 +452,9 @@ class TaskStoreRecommendationResults(luigi.Task):
 
                 tenants[tenant] = results_log_file
 
-        for k, v in tenants.iteritems():
+        for k in tenants:
 
-            tenant, results_log_file = k, v
+            tenant, results_log_file = k, tenants[k]
 
             job = multiprocessing.Process(target=task_store_recommendation_results, args=(tenant, results_log_file,
                                                                                           data_dir))
@@ -488,9 +488,9 @@ class TaskStoreRecommendationResults(luigi.Task):
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
             writer.writerow(["tenant"])
 
-            for k, v in tenants.iteritems():
+            for k in tenants:
 
-                tenant, results_log_file = k, v
+                tenant, results_log_file = k, tenants[k]
 
                 writer.writerow([tenant, results_log_file])
 
