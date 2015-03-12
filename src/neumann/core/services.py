@@ -69,7 +69,7 @@ class StoreService(object):
 
         query = neo4j.Query(statement, params)
 
-        r = neo4j.run_query(query)
+        r = neo4j.run_query(query, timeout=300)
 
         items = [x["id"] for x in r]
 
@@ -85,7 +85,7 @@ class StoreService(object):
 
         query = neo4j.Query(statement, params)
 
-        r = neo4j.run_query(query, commit=False)
+        r = neo4j.run_query(query, commit=False, timeout=300)
 
         items = [x["item"].properties for x in r]
         paths = list()
