@@ -4,6 +4,7 @@ import re
 
 from py2neo import Graph, Node, Relationship, rewrite
 from py2neo.packages.httpstream import http
+import py2neo
 
 
 from neumann.core import errors
@@ -26,10 +27,15 @@ def get_connection():
 
     try:
 
+        username = conf["neo4j"]["username"]
+        password = conf["neo4j"]["password"]
         host = conf["neo4j"]["host"]
         port = conf["neo4j"]["port"]
         endpoint = conf["neo4j"]["endpoint"]
         protocol = conf["neo4j"]["protocol"]
+
+        py2neo.authenticate("{host}:{port}".format(host=host, port=port), username, password)
+
         uri = "{0}://{1}:{2}/{3}".format(protocol, host, port, endpoint)
 
         db_conn = Graph(uri)
