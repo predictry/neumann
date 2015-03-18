@@ -76,6 +76,41 @@ class StoreService(object):
         return items
 
     @classmethod
+    def get_tenant_items_categories(cls, tenant):
+
+        statement = "MATCH (n :`Item` :`{TENANT}`) " \
+                    "WHERE HAS (n.category) " \
+                    "RETURN DISTINCT n.category AS category, COUNT(n.category) AS n;".format(TENANT=tenant)
+
+        query = neo4j.Query(statement, list())
+
+        r = neo4j.run_query(query, timeout=300)
+
+        categories = {row["category"]: row["n"] for row in r}
+
+        return categories
+
+
+    @classmethod
+    def get_tenant_items_from_category(cls, tenant, category, skip=0, limit=10):
+
+        statement = "MATCH (n :`Item` :`{TENANT}`) " \
+                    "WHERE HAS (n.category) AND n.category = {{category}}" \
+                    "RETURN n.id AS id " \
+                    "SKIP {{skip}} " \
+                    "LIMIT {{limit}};".format(TENANT=tenant)
+
+        params = [neo4j.Parameter("skip", skip), neo4j.Parameter("limit", limit), neo4j.Parameter("category", category)]
+
+        query = neo4j.Query(statement, params)
+
+        r = neo4j.run_query(query, timeout=300)
+
+        items = [x["id"] for x in r]
+
+        return items
+
+    @classmethod
     def download_tenant_items_to_a_folder(cls, tenant, dir, skip=0, limit=10):
 
         params = [neo4j.Parameter("limit", limit), neo4j.Parameter("skip", skip)]
