@@ -136,6 +136,7 @@ class StoreService(object):
             with open(tmp_file, "w") as fp:
                 json.dump(item, fp)
 
+        n = len(items)
         del items[:]
 
-        return paths
+        return paths, n

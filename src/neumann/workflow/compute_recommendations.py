@@ -8,7 +8,7 @@ import tempfile
 import shutil
 import csv
 import json
-import multiprocessing
+import time
 
 import luigi
 import luigi.file
@@ -18,8 +18,9 @@ from neumann.core.recommend import item_based
 from neumann.core import aws
 from neumann.core import errors
 from neumann.utils import config
+from neumann.utils.logger import Logger
 
-
+#todo: define tempdir in config
 if os.name == 'posix':
     tempfile.tempdir = "/tmp"
 else:
@@ -30,10 +31,16 @@ CSV_EXTENSION = "csv"
 JSON_EXTENSION = "json"
 VALUE_SEPARATOR = ";"
 
+#todo: implement logging
 
-def task_retrieve_tenant_items_list(tenant, filename, output_queue):
+
+def task_retrieve_tenant_items_list(tenant, filename):
+
+    task = "Task::RetrieveTenantItemsList"
 
     n = StoreService.get_item_count_for_tenant(tenant=tenant)
+
+    Logger.info("{0} [Found `{1}` items for `{2}`]".format(task, n, tenant))
 
     limit = 10000
     skip = 0
@@ -41,10 +48,12 @@ def task_retrieve_tenant_items_list(tenant, filename, output_queue):
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
 
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(filename), tenant))
+
     with open(filename, "w") as fp:
 
         writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-        writer.writerow(["tenant", "item_id"])
+        writer.writerow(["tenant", "itemId"])
 
         while n > skip:
 
@@ -53,31 +62,35 @@ def task_retrieve_tenant_items_list(tenant, filename, output_queue):
             for item_id in items:
                 writer.writerow([tenant, item_id])
 
+            Logger.info("{0} [Fetched `{1}` item IDs, skipping `{2}` for `{3}`]".format(task, len(items), skip, tenant))
+
             skip += limit
 
-    output_queue.put((tenant, filename))
 
+def task_compute_recommendations_for_tenant(tenant, items_list_filename, output_filename):
 
-def task_compute_recommendations_for_tenant(items_list_filename, results_log_dir):
+    task = "Task::RetrieveComputeRecommendations"
 
     recommendation_types = ["oipt", "oip", "anon-oip", "oivt", "oiv", "anon-oiv"]
     response_items_count = 10
 
-    if not os.path.exists(os.path.dirname(results_log_dir)):
-        os.makedirs(os.path.dirname(results_log_dir))
+    if not os.path.exists(os.path.dirname(output_filename)):
+        os.makedirs(os.path.dirname(output_filename))
+
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(os.path.dirname(output_filename), tenant))
 
     #compute recommendations
-    with open(items_list_filename, "r") as fpi, open(results_log_dir, "w") as fpo:
+    with open(items_list_filename, "r") as fpi, open(output_filename, "w") as fpo:
 
         reader = csv.reader(fpi)
         next(reader)
 
         writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
-        writer.writerow(["tenant", "item_id", "n_results", "recommendation_types", "recommended_items"])
+        writer.writerow(["tenant", "itemId", "nResults", "recommendationTypes", "recommendedItems"])
 
         for row in reader:
 
-            tenant, item_id = row
+            _, item_id = row
 
             try:
 
@@ -105,41 +118,45 @@ def task_compute_recommendations_for_tenant(items_list_filename, results_log_dir
                 writer.writerow([tenant, item_id, len(items_id), VALUE_SEPARATOR.join(recommendation_types_used),
                                 VALUE_SEPARATOR.join(item_id for item_id in items_id)])
 
+                Logger.info("{0} [Ran for `{1}`::`{2}` using args(`{3}`)]".format(task, tenant, item_id,
+                                                                                  recommendation_types_used))
             except errors.UnknownRecommendationOption:
                 continue
 
 
-def task_store_recommendation_results(tenant, results_filename, data_dir):
+def task_store_recommendation_results(tenant, recommendations_filename, data_dir, results_filename):
+
+    task = "Task::StoreRecommendationResults"
 
     #generate files
     s3 = config.load_configuration()["s3"]
     s3bucket = s3["bucket"]
     s3path = os.path.join(s3["folder"], tenant, "recommendations")
 
-    tenant_items_recommendation_dir = os.path.join(data_dir, tenant)
+    if not os.path.exists(os.path.dirname(data_dir)):
+        os.makedirs(os.path.dirname(data_dir))
 
-    if not os.path.exists(os.path.dirname(tenant_items_recommendation_dir)):
-        os.makedirs(os.path.dirname(tenant_items_recommendation_dir))
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(data_dir), tenant))
 
     try:
-        os.mkdir(tenant_items_recommendation_dir)
+        os.mkdir(data_dir)
     except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(tenant_items_recommendation_dir):
+        if exc.errno == errno.EEXIST and os.path.isdir(data_dir):
             pass
         else:
             raise exc
 
-    with open(results_filename, "r") as fp:
+    with open(recommendations_filename, "r") as fp:
 
         reader = csv.reader(fp)
         next(reader)
 
         for row in reader:
 
-            te, item_id, n_results, recommendation_types, recommended_items = row
+            _, item_id, _, recommendation_types, recommended_items = row
 
             filename = '.'.join([item_id, JSON_EXTENSION])
-            file_path = os.path.join(tenant_items_recommendation_dir, filename)
+            file_path = os.path.join(data_dir, filename)
 
             with open(file_path, "w") as f:
                 items = recommended_items.split(VALUE_SEPARATOR)
@@ -154,69 +171,112 @@ def task_store_recommendation_results(tenant, results_filename, data_dir):
 
     #upload files
 
-    aws.sync(tenant_items_recommendation_dir, s3bucket, s3path)
+    Logger.info("{0} [Running AWS Sync from `{1}` to `{2}/{3}`]".format(task, data_dir, s3bucket, s3path))
+
+    start = time.time()
+
+    aws.sync(data_dir, s3bucket, s3path)
+
+    end = time.time()
+
+    Logger.info("{0} [Finished AWS Sync from `{1}` to `{2}/{3}` in {4}s]".format(task, data_dir, s3bucket, s3path,
+                                                                                 end-start))
 
     #delete generated files
 
-    with open(results_filename, "r") as fp:
+    with open(recommendations_filename, "r") as fpi, open(results_filename, "w") as fpo:
 
-        reader = csv.reader(fp)
+        reader = csv.reader(fpi)
         next(reader)
+
+        writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
+        writer.writerow(["tenant", "itemId", "filename", "filePath"])
 
         for row in reader:
 
-            te, item_id, n_results, recommendation_types, recommended_items = row
+            _, item_id, _, _, _ = row
 
             filename = '.'.join([item_id, JSON_EXTENSION])
-            file_path = os.path.join(tenant_items_recommendation_dir, filename)
+            file_path = os.path.join(data_dir, filename)
 
             os.remove(file_path)
+
+            writer.writerow([tenant, item_id, filename, file_path])
 
     return
 
 
-def task_sync_items_store_with_s3(tenant, data_dir):
+def task_sync_items_with_s3(tenant, data_dir, results_filename):
+
+    task = "Task::SyncItemsWithS3"
 
     s3 = config.load_configuration()["s3"]
     s3bucket = s3["bucket"]
     s3path = os.path.join(s3["folder"], tenant, "items")
 
-    items_dir = os.path.join(data_dir, tenant)
     n = StoreService.get_item_count_for_tenant(tenant=tenant)
+
+    Logger.info("{0} [Found `{1}` items for `{2}`]".format(task, n, tenant))
 
     limit = 5000
     skip = 0
 
-    if not os.path.exists(os.path.dirname(items_dir)):
-        os.makedirs(os.path.dirname(items_dir))
+    if not os.path.exists(os.path.dirname(data_dir)):
+        os.makedirs(os.path.dirname(data_dir))
+
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(data_dir), tenant))
 
     try:
-        os.mkdir(items_dir)
+        os.mkdir(data_dir)
     except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(items_dir):
+        if exc.errno == errno.EEXIST and os.path.isdir(data_dir):
             pass
         else:
             raise exc
 
     while n > skip:
 
-        StoreService.download_tenant_items_to_a_folder(tenant, items_dir, skip=skip, limit=limit)
+        _, n = StoreService.download_tenant_items_to_a_folder(tenant, data_dir, skip=skip, limit=limit)
+
+        Logger.info("{0} [Downloaded `{1}` items, skipping `{2}` for `{3}`]".format(task, n, skip, tenant))
 
         skip += limit
 
-    aws.sync(items_dir, s3bucket, s3path)
+    Logger.info("{0} [Running AWS Sync from `{1}` to `{2}/{3}`]".format(task, data_dir, s3bucket, s3path))
 
-    shutil.rmtree(items_dir)
+    start = time.time()
+
+    aws.sync(data_dir, s3bucket, s3path)
+
+    end = time.time()
+
+    Logger.info("{0} [Finished AWS Sync from `{1}` to `{2}/{3}` in {4}s]".format(task, data_dir, s3bucket, s3path,
+                                                                                 end-start))
+
+    shutil.rmtree(data_dir)
+
+    with open(results_filename, "w") as fp:
+
+        writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
+        writer.writerow(["tenant", "nItems", "dataDir"])
+
+        writer.writerow([tenant, n, data_dir])
 
     return
 
 
 def task_get_tenant_categories(tenant, output_filename):
 
+    task = "Task::RetrieveTenantItemCategories"
+
     categories = StoreService.get_tenant_items_categories(tenant)
+
+    Logger.info("{0} [Found `{1}` categories for `{2}`]".format(task, len(categories), tenant))
 
     if not os.path.exists(os.path.dirname(output_filename)):
         os.makedirs(os.path.dirname(output_filename))
+
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(output_filename), tenant))
 
     with open(output_filename, "w") as fp:
 
@@ -230,21 +290,23 @@ def task_get_tenant_categories(tenant, output_filename):
     return
 
 
-def task_store_tenant_items_by_category(tenant, categories_filename, data_dir):
+def task_store_tenant_items_by_category_on_s3(tenant, categories_filename, data_dir, output_filename):
+
+    task = "Task::StoreTenantItemsByCategoryOnS3"
 
     s3 = config.load_configuration()["s3"]
     s3bucket = s3["bucket"]
     s3path = os.path.join(s3["folder"], tenant, "categories")
 
-    tenant_category_items_dir = os.path.join(data_dir, tenant)
+    if not os.path.exists(os.path.dirname(data_dir)):
+        os.makedirs(os.path.dirname(data_dir))
 
-    if not os.path.exists(os.path.dirname(tenant_category_items_dir)):
-        os.makedirs(os.path.dirname(tenant_category_items_dir))
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(output_filename), tenant))
 
     try:
-        os.mkdir(tenant_category_items_dir)
+        os.mkdir(data_dir)
     except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(tenant_category_items_dir):
+        if exc.errno == errno.EEXIST and os.path.isdir(data_dir):
             pass
         else:
             raise exc
@@ -262,7 +324,7 @@ def task_store_tenant_items_by_category(tenant, categories_filename, data_dir):
 
     for category in categories:
 
-        output_filename = os.path.join(tenant_category_items_dir, '.'.join([category.replace("/", "_"), JSON_EXTENSION]))
+        output_filename = os.path.join(data_dir, '.'.join([category.replace("/", "_"), JSON_EXTENSION]))
 
         items = StoreService.get_tenant_items_from_category(tenant, category, skip=0, limit=100)
         count = categories[category]
@@ -271,56 +333,41 @@ def task_store_tenant_items_by_category(tenant, categories_filename, data_dir):
 
             json.dump(dict(items=items, count=int(count)), fp)
 
-    aws.sync(tenant_category_items_dir, s3bucket, s3path)
+        categories[category] = len(items)
+
+        Logger.info("{0} [Fetched `{1}` items of category `{2}` from `{3}`]".format(task, len(items), category, tenant))
+
+    Logger.info("{0} [Running AWS Sync from `{1}` to `{2}/{3}`]".format(task, data_dir, s3bucket, s3path))
+
+    start = time.time()
+
+    aws.sync(data_dir, s3bucket, s3path)
+
+    end = time.time()
+
+    Logger.info("{0} [Finished AWS Sync from `{1}` to `{2}/{3}` in {4}s]".format(task, data_dir, s3bucket, s3path,
+                                                                                 end-start))
+
+    with open(output_filename, "w") as fp:
+
+        writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
+        writer.writerow(["tenant", "category", "nItemsUploaded"])
+
+        for category in categories:
+
+            writer.writerow([tenant, category, categories[category]])
 
     return
-
-
-class TaskRetrieveListOfTenants(luigi.Task):
-
-    date = luigi.DateParameter()
-
-    def output(self):
-
-        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
-
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
-
-        return luigi.LocalTarget(file_path)
-
-    def run(self):
-
-        #get list of active tenants from graph db store
-
-        active_tenants_names = StoreService.get_active_tenants()
-
-        if not os.path.exists(os.path.dirname(self.output().path)):
-            os.makedirs(os.path.dirname(self.output().path))
-
-        #write tenants out to file
-        with self.output().open("w") as f:
-
-            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant"])
-
-            for tenant in active_tenants_names:
-
-                writer.writerow([tenant])
-
-        return
 
 
 class TaskRetrieveTenantsItemsList(luigi.Task):
 
     date = luigi.DateParameter()
-
-    def requires(self):
-
-        return TaskRetrieveListOfTenants(self.date)
+    tenant = luigi.Parameter()
 
     def output(self):
 
-        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
+        file_name = "{0}-{1}-{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -328,68 +375,7 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
     def run(self):
 
-        tenants = list()
-        jobs = list()
-        cpu_count = multiprocessing.cpu_count()
-        output_queue = multiprocessing.Queue()
-
-        #get list of tenants
-        with self.input().open("r") as fp:
-
-            reader = csv.reader(fp)
-            next(reader)
-
-            for row in reader:
-
-                tenant, = row
-
-                tenants.append(tenant)
-
-        for tenant in tenants:
-
-            filename = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__,
-                                    '.'.join([tenant, CSV_EXTENSION]))
-
-            job = multiprocessing.Process(target=task_retrieve_tenant_items_list, args=(tenant, filename,
-                                                                                        output_queue))
-
-            jobs.append(job)
-
-        if cpu_count > 1:
-
-            while jobs:
-
-                upper_bound = cpu_count - 1 if len(jobs) > cpu_count else len(jobs) - 1
-
-                #there is only one job left
-                if upper_bound == 0:
-                    upper_bound = 1
-
-                for job in jobs[0:upper_bound]:
-                    job.start()
-
-                for job in jobs[0:upper_bound]:
-                    job.join()
-
-                del jobs[0:upper_bound]
-        else:
-
-            for job in jobs:
-                job.start()
-                job.join()
-
-        if not os.path.exists(os.path.dirname(self.output().path)):
-            os.makedirs(os.path.dirname(self.output().path))
-
-        with self.output().open("w") as fp:
-
-            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "items_list_file"])
-
-            while not output_queue.empty():
-
-                r = output_queue.get()
-                writer.writerow([r[0], r[1]])
+        task_retrieve_tenant_items_list(tenant=self.tenant, filename=self.output().path)
 
         return
 
@@ -397,14 +383,15 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 class TaskComputeRecommendations(luigi.Task):
 
     date = luigi.DateParameter()
+    tenant = luigi.Parameter()
 
     def requires(self):
 
-        return TaskRetrieveTenantsItemsList(self.date)
+        return TaskRetrieveTenantsItemsList(date=self.date, tenant=self.tenant)
 
     def output(self):
 
-        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
+        file_name = "{0}-{1}-{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -412,76 +399,8 @@ class TaskComputeRecommendations(luigi.Task):
 
     def run(self):
 
-        tenants = dict()
-        jobs = list()
-        cpu_count = multiprocessing.cpu_count()
-
-        #create output dir in temp dir
-
-        output_path = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
-
-        try:
-            os.mkdir(output_path)
-        except OSError as exc:
-            if exc.errno == errno.EEXIST and os.path.isdir(output_path):
-                pass
-            else:
-                raise exc
-
-        with self.input().open("r") as fp:
-
-            reader = csv.reader(fp)
-            next(reader)
-
-            for row in reader:
-                tenant, items_list_filename = row
-
-                tenants[tenant] = items_list_filename
-
-        for k in tenants:
-            tenant, items_list_filename = k, tenants[k]
-
-            results_log_file = os.path.join(output_path, '.'.join([tenant, CSV_EXTENSION]))
-
-            job = multiprocessing.Process(target=task_compute_recommendations_for_tenant, args=(items_list_filename,
-                                                                                                results_log_file))
-            jobs.append(job)
-
-            #compute recommendations
-        if cpu_count > 1:
-
-            while jobs:
-
-                upper_bound = cpu_count - 1 if len(jobs) > cpu_count else len(jobs) - 1
-
-                #there is only one job left
-                if upper_bound == 0:
-                    upper_bound = 1
-
-                for job in jobs[0:upper_bound]:
-                    job.start()
-
-                for job in jobs[0:upper_bound]:
-                    job.join()
-
-                del jobs[0:upper_bound]
-        else:
-
-            for job in jobs:
-                job.start()
-                job.join()
-
-        with self.output().open("w") as fp:
-
-            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "results_log_file"])
-
-            for k in tenants:
-                tenant, items_list_filename = k, tenants[k]
-
-                results_log_file = os.path.join(output_path, '.'.join([tenant, CSV_EXTENSION]))
-
-                writer.writerow([tenant, results_log_file])
+        task_compute_recommendations_for_tenant(self.tenant, items_list_filename=self.input().path,
+                                                output_filename=self.output().path)
 
         return
 
@@ -489,14 +408,15 @@ class TaskComputeRecommendations(luigi.Task):
 class TaskStoreRecommendationResults(luigi.Task):
 
     date = luigi.DateParameter()
+    tenant = luigi.Parameter()
 
     def requires(self):
 
-        return TaskComputeRecommendations(self.date)
+        return TaskComputeRecommendations(date=self.date, tenant=self.tenant)
 
     def output(self):
 
-        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
+        file_name = "{0}-{1}-{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -504,75 +424,22 @@ class TaskStoreRecommendationResults(luigi.Task):
 
     def run(self):
 
-        tenants = dict()
-        jobs = list()
-        cpu_count = multiprocessing.cpu_count()
-        data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
+        data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__, self.tenant)
 
-        with self.input().open("r") as fp:
+        task_store_recommendation_results(tenant=self.tenant, recommendations_filename=self.input().path,
+                                          data_dir=data_dir, results_filename=self.output().path)
 
-            reader = csv.reader(fp)
-            next(reader)
-
-            for row in reader:
-                tenant, results_log_file = row
-
-                tenants[tenant] = results_log_file
-
-        for k in tenants:
-
-            tenant, results_log_file = k, tenants[k]
-
-            job = multiprocessing.Process(target=task_store_recommendation_results, args=(tenant, results_log_file,
-                                                                                          data_dir))
-            jobs.append(job)
-
-        if cpu_count > 1:
-
-            while jobs:
-
-                upper_bound = cpu_count - 1 if len(jobs) > cpu_count else len(jobs) - 1
-
-                #there is only one job left
-                if upper_bound == 0:
-                    upper_bound = 1
-
-                for job in jobs[0:upper_bound]:
-                    job.start()
-
-                for job in jobs[0:upper_bound]:
-                    job.join()
-
-                del jobs[0:upper_bound]
-        else:
-
-            for job in jobs:
-                job.start()
-                job.join()
-
-        with self.output().open("w") as fp:
-
-            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant"])
-
-            for k in tenants:
-
-                tenant, results_log_file = k, tenants[k]
-
-                writer.writerow([tenant, results_log_file])
+        return
 
 
-class TaskSyncItemsStoreWithS3(luigi.Task):
+class TaskSyncItemsWithS3(luigi.Task):
 
     date = luigi.DateParameter()
-
-    def requires(self):
-
-        return TaskRetrieveListOfTenants(self.date)
+    tenant = luigi.Parameter()
 
     def output(self):
 
-        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
+        file_name = "{0}-{1}-{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -580,70 +447,21 @@ class TaskSyncItemsStoreWithS3(luigi.Task):
 
     def run(self):
 
-        jobs = list()
-        cpu_count = multiprocessing.cpu_count()
-        data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
+        data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__, self.tenant)
 
-        tenants = list()
+        task_sync_items_with_s3(tenant=self.tenant, data_dir=data_dir, results_filename=self.output().path)
 
-        with self.input().open("r") as fp:
-
-            reader = csv.reader(fp)
-            next(reader)
-
-            for row in reader:
-
-                tenant = row[0]
-                tenants.append(tenant)
-
-                job = multiprocessing.Process(target=task_sync_items_store_with_s3, args=(tenant, data_dir))
-                jobs.append(job)
-
-        if cpu_count > 1:
-
-            while jobs:
-
-                upper_bound = cpu_count if len(jobs) > cpu_count else len(jobs)
-
-                #there is only one job left
-                if upper_bound == 0:
-                    upper_bound = 1
-
-                for job in jobs[0:upper_bound]:
-                    job.start()
-
-                for job in jobs[0:upper_bound]:
-                    job.join()
-
-                del jobs[0:upper_bound]
-        else:
-
-            for job in jobs:
-                job.start()
-                job.join()
-
-        #todo: check job status
-
-        with self.output().open("w") as fp:
-
-            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant"])
-
-            for tenant in tenants:
-                writer.writerow([tenant])
+        return
 
 
 class TaskRetrieveListOfItemCategories(luigi.Task):
 
     date = luigi.DateParameter()
-
-    def requires(self):
-
-        return TaskRetrieveListOfTenants(self.date)
+    tenant = luigi.Parameter()
 
     def output(self):
 
-        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
+        file_name = "{0}-{1}-{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -651,53 +469,23 @@ class TaskRetrieveListOfItemCategories(luigi.Task):
 
     def run(self):
 
-        tenants = list()
-        jobs = list()
+        task_get_tenant_categories(tenant=self.tenant, output_filename=self.output().path)
 
-        output_path = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
-
-        with self.input().open("r") as fp:
-
-            reader = csv.reader(fp)
-            next(reader)
-
-            for row in reader:
-
-                tenant = row[0]
-                tenants.append(tenant)
-
-        for tenant in tenants:
-            output_filename = os.path.join(output_path, '.'.join([tenant, CSV_EXTENSION]))
-
-            job = multiprocessing.Process(target=task_get_tenant_categories, args=(tenant, output_filename))
-            jobs.append(job)
-
-        for job in jobs:
-            job.start()
-            job.join()
-
-        with self.output().open("w") as fp:
-
-            writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "output_filename"])
-
-            for tenant in tenants:
-                output_filename = os.path.join(output_path, '.'.join([tenant, CSV_EXTENSION]))
-
-                writer.writerow([tenant, output_filename])
+        return
 
 
-class TaskStoreProductsByCategory(luigi.Task):
+class TaskStoreProductsByCategoryOnS3(luigi.Task):
 
     date = luigi.DateParameter()
+    tenant = luigi.Parameter()
 
     def requires(self):
 
-        return TaskRetrieveListOfItemCategories(self.date)
+        return TaskRetrieveListOfItemCategories(date=self.date, tenant=self.tenant)
 
     def output(self):
 
-        file_name = "{0}_{1}.{2}".format(self.date.__str__(), self.__class__.__name__, CSV_EXTENSION)
+        file_name = "{0}-{1}-{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), file_name)
 
@@ -705,32 +493,12 @@ class TaskStoreProductsByCategory(luigi.Task):
 
     def run(self):
 
-        tenants = dict()
-        jobs = list()
+        data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__, self.tenant)
 
-        output_path = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__)
+        task_store_tenant_items_by_category_on_s3(tenant=self.tenant, categories_filename=self.input().path,
+                                                  data_dir=data_dir, output_filename=self.output().path)
 
-        with self.input().open("r") as fp:
-
-            reader = csv.reader(fp)
-            next(reader)
-
-            for row in reader:
-
-                tenant, filename = row
-                tenants[tenant] = filename
-
-        for tenant in tenants:
-
-            filename = tenants[tenant]
-
-            job = multiprocessing.Process(target=task_store_tenant_items_by_category, args=(tenant, filename,
-                                                                                            output_path))
-            jobs.append(job)
-
-        for job in jobs:
-            job.start()
-            job.join()
+        return
 
 
 if __name__ == "__main__":
