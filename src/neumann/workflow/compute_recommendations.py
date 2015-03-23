@@ -118,8 +118,8 @@ def task_compute_recommendations_for_tenant(tenant, items_list_filename, output_
                 writer.writerow([tenant, item_id, len(items_id), VALUE_SEPARATOR.join(recommendation_types_used),
                                 VALUE_SEPARATOR.join(item_id for item_id in items_id)])
 
-                Logger.info("{0} [Ran for `{1}`::`{2}` using args(`{3}`)]".format(task, tenant, item_id,
-                                                                                  recommendation_types_used))
+                #Logger.info("{0} [Ran for `{1}`::`{2}` using args(`{3}`)]".format(task, tenant, item_id,
+                #                                                                  recommendation_types_used))
             except errors.UnknownRecommendationOption:
                 continue
 
