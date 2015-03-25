@@ -15,8 +15,12 @@ function buildEnvironment(){
     ENV=app-env
     REQUIREMENTS=requirements.txt
 
-    virtualenv $ENV
-    #python3 -m venv ${ENV}
+    unamestr=`uname`
+    if [[ "$unamestr" == 'Darwin' ]]; then
+        export CC=/usr/bin/llvm-gcc
+
+    #virtualenv $ENV
+    python3 -m venv ${ENV}
 
     PYTHONENV=${ENV}/bin
     SRCROOT=src
