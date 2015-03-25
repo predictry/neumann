@@ -2,7 +2,7 @@ __author__ = 'guilherme'
 
 import re
 
-from neo4jrestclient.client import GraphDatabase, Node, Relationship
+from neo4jrestclient.client import GraphDatabase
 from neo4jrestclient import exceptions
 import neo4jrestclient.options
 
