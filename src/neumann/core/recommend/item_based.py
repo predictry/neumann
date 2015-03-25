@@ -15,11 +15,11 @@ def __rank_most_popular_items(data, key, collection=False, n=5):
 
     for item in data:
         if collection:
-            all_items.extend(item.properties[key])
+            all_items.extend(item[key])
         else:
-            all_items.append(item.properties[key])
+            all_items.append(item[key])
 
-        item_store[item.properties[key]] = item.properties
+        item_store[item[key]] = item
 
     counter = Counter(all_items)
 
@@ -163,7 +163,7 @@ def compute_recommendation(tenant, rtype, item_id, filters=None, limit=None, fie
             item_count += record[1]
 
         for record in output:
-            item = record[0].properties
+            item = record[0]["data"]
             item["frequency"] = float("{0:.2f}".format(record[1]/float(item_count)))
             items.append(item)
 
@@ -173,7 +173,7 @@ def compute_recommendation(tenant, rtype, item_id, filters=None, limit=None, fie
 
         collections = []
         for record in output:
-            collections.append(record[0])
+            collections.append(record[0]["data"])
 
         limit = limit if limit else 10
 

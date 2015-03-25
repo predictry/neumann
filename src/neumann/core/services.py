@@ -23,7 +23,7 @@ class StoreService(object):
         tenants = []
 
         for row in kwargs["result"]:
-            tenants.extend([x for x in row["labels"] if x != store.LABEL_ITEM])
+            tenants.extend([x for x in row[0] if x != store.LABEL_ITEM])
 
         return tenants
 
@@ -39,7 +39,7 @@ class StoreService(object):
         :return:
         """
 
-        return kwargs["result"][0]["n"]
+        return kwargs["result"][0][0]
 
     @classmethod
     @neo4j.CypherQuery("MATCH (n :`{LABEL}` {{id: {{id}} }}) RETURN n".format(LABEL=store.LABEL_ITEM))
@@ -51,7 +51,7 @@ class StoreService(object):
         :return:
         """
 
-        return kwargs["result"][0]["n"]
+        return kwargs["result"][0][0]
 
 
     #todo: refactor: retrieve property of entity
@@ -68,7 +68,7 @@ class StoreService(object):
 
         r = neo4j.run_query(query, timeout=300)
 
-        items = [x["id"] for x in r]
+        items = [x[0] for x in r]
 
         return items
 
@@ -83,7 +83,7 @@ class StoreService(object):
 
         r = neo4j.run_query(query, timeout=300)
 
-        categories = {row["category"]: row["n"] for row in r}
+        categories = {row[0]: row[1] for row in r}
 
         return categories
 
@@ -103,7 +103,7 @@ class StoreService(object):
 
         r = neo4j.run_query(query, timeout=300)
 
-        items = [x["id"] for x in r]
+        items = [x[0] for x in r]
 
         return items
 
@@ -119,7 +119,7 @@ class StoreService(object):
 
         r = neo4j.run_query(query, commit=False, timeout=300)
 
-        items = [x["item"].properties for x in r]
+        items = [x[0].properties for x in r]
         paths = list()
 
         for item in items:

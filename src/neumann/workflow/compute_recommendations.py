@@ -122,6 +122,9 @@ def task_compute_recommendations_for_tenant(tenant, items_list_filename, output_
                 #                                                                  recommendation_types_used))
             except errors.UnknownRecommendationOption:
                 continue
+            except Exception:
+                os.remove(output_filename)
+                raise
 
 
 def task_store_recommendation_results(tenant, recommendations_filename, data_dir, results_filename):
