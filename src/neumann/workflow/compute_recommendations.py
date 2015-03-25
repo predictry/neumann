@@ -77,7 +77,7 @@ def task_compute_recommendations_for_tenant(tenant, items_list_filename, output_
     if not os.path.exists(os.path.dirname(output_filename)):
         os.makedirs(os.path.dirname(output_filename))
 
-        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(os.path.dirname(output_filename), tenant))
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(output_filename), tenant))
 
     #compute recommendations
     with open(items_list_filename, "r") as fpi, open(output_filename, "w") as fpo:
@@ -129,7 +129,7 @@ def task_store_recommendation_results(tenant, recommendations_filename, data_dir
     task = "Task::StoreRecommendationResults"
 
     #generate files
-    s3 = config.load_configuration()["s3"]
+    s3 = config.get("s3")
     s3bucket = s3["bucket"]
     s3path = os.path.join(s3["folder"], tenant, "recommendations")
 
@@ -210,7 +210,7 @@ def task_sync_items_with_s3(tenant, data_dir, results_filename):
 
     task = "Task::SyncItemsWithS3"
 
-    s3 = config.load_configuration()["s3"]
+    s3 = config.get("s3")
     s3bucket = s3["bucket"]
     s3path = os.path.join(s3["folder"], tenant, "items")
 
@@ -294,7 +294,7 @@ def task_store_tenant_items_by_category_on_s3(tenant, categories_filename, data_
 
     task = "Task::StoreTenantItemsByCategoryOnS3"
 
-    s3 = config.load_configuration()["s3"]
+    s3 = config.get("s3")
     s3bucket = s3["bucket"]
     s3path = os.path.join(s3["folder"], tenant, "categories")
 

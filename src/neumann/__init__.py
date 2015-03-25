@@ -4,7 +4,6 @@ __author__ = 'guilherme'
 from neumann.utils import config
 from neumann.utils.logger import Logger
 
-conf = config.load_configuration()
+logging = config.get("logging")
 
-if conf:
-    Logger.setup_logging(conf["log_config_file"])
+Logger.setup_logging(logging["logconfig"])

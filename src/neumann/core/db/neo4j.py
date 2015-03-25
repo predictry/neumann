@@ -22,17 +22,20 @@ def get_connection():
     :return: py2neo GraphDatabaseService object
     """
 
-    #todo: use classes; if endpoint is not defined, try localhost; if there is no response, thrown an except
-    conf = config.load_configuration()
-
     try:
 
-        username = conf["neo4j"]["username"]
-        password = conf["neo4j"]["password"]
-        host = conf["neo4j"]["host"]
-        port = conf["neo4j"]["port"]
-        endpoint = conf["neo4j"]["endpoint"]
-        protocol = conf["neo4j"]["protocol"]
+        neo4j = config.get("neo4j")
+    except errors.ConfigurationError:
+        raise
+
+    username = neo4j["username"]
+    password = neo4j["password"]
+    host = neo4j["host"]
+    port = int(neo4j["port"])
+    endpoint = neo4j["endpoint"]
+    protocol = neo4j["protocol"]
+
+    try:
 
         py2neo.authenticate("{host}:{port}".format(host=host, port=port), username, password)
 
@@ -386,19 +389,18 @@ def run_batch_query(queries, commit, timeout=None):
         tx.append(statement, params)
 
     #notice that we don't take the first result only, but all of them
-    result = tx.process()
+    results = tx.process()
 
     if commit:
         tx.commit()
 
     collection = []
-    for r in result:
-        records = []
-        for row in r:
-            record = {}
+    for result in results:
 
-            for i in range(0, len(row.columns)):
-                record[row.columns[i]] = row.values[i]
+        records = []
+
+        for record in result:
+
             records.append(record)
 
         collection.append(records)

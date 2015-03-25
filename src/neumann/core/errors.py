@@ -19,3 +19,8 @@ class UnknownRecommendationOption(Exception):
 
 class UndefinedConfiguration(Exception):
     pass
+
+
+class ConfigurationError(Exception):
+
+    pass

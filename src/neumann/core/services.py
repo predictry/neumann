@@ -2,13 +2,10 @@ __author__ = 'guilherme'
 
 import os
 import os.path
-import tempfile
-import errno
 import json
 
 from neumann.core.model import store
 from neumann.core.db import neo4j
-from neumann.utils.logger import Logger
 
 
 class StoreService(object):

@@ -1,33 +1,39 @@
 __author__ = 'guilherme'
 
 import os
-import json
+import os.path
+import configparser
+
+from neumann.core import errors
 
 PROJECT_BASE = ''.join([os.path.dirname(os.path.abspath(__file__)), "/../../../"])
-CONFIG_FILE = ''.join([PROJECT_BASE, 'config.json'])
+CONFIG_FILE = ''.join([PROJECT_BASE, 'config.ini'])
 
 
-#todo: Load configuration into a class
+def get(section, option=None, type=None):
 
+    config = configparser.ConfigParser()
 
-def load_configuration():
+    with open(CONFIG_FILE, "r") as fp:
+        config.read_file(fp)
 
-    if os.path.isfile(CONFIG_FILE):
-
-        with open(CONFIG_FILE, 'r') as f:
-
-            contents = ''.join(f.readlines())
+        if option:
 
             try:
-                conf = json.loads(contents)
-            except ValueError as err:
-                print("[{0}] There was an error reading the '{1}' file: \n\t'{2}'".format(__name__, CONFIG_FILE, err))
-                return None
+                value = config.get(section, option)
+            except configparser.NoOptionError as exc:
+                raise errors.ConfigurationError(exc)
+            else:
 
-            if "log_config_file_name" in conf:
-                conf["log_config_file"] = conf["log_config_file_name"]
+                if type and hasattr(type, '__call__'):
+                    return type(value)
+                else:
+                    return value
+        else:
 
-            return conf
-
-    else:
-        return None
+            try:
+                data = dict(config.items(section))
+            except configparser.NoSectionError as exc:
+                raise errors.ConfigurationError(exc)
+            else:
+                return data
