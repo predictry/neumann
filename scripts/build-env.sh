@@ -18,6 +18,7 @@ function buildEnvironment(){
     unamestr=`uname`
     if [[ "$unamestr" == 'Darwin' ]]; then
         export CC=/usr/bin/llvm-gcc
+    fi
 
     #virtualenv $ENV
     python3 -m venv ${ENV}
