@@ -347,7 +347,7 @@ class TaskSyncItemsWithS3(luigi.Task):
         s3bucket = s3["bucket"]
         s3path = os.path.join(s3["folder"], self.tenant, "items")
 
-        limit = 1000
+        limit = 100
         skip = 0 + self.start
 
         if not os.path.exists(os.path.dirname(data_dir)):
