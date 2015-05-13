@@ -106,7 +106,8 @@ class TaskComputeRecommendations(luigi.Task):
 
         task = "`{0}`::`{1}`::`{2}`".format(self.__class__.__name__, self.tenant, self.id)
 
-        recommendation_types = ["oipt", "oip", "anon-oip", "oivt", "oiv", "anon-oiv"]
+        # recommendation_types = ["oipt", "oip", "anon-oip", "oivt", "oiv", "anon-oiv"]
+        recommendation_types = ["oipt", "oiv", "anon-oiv"]
         response_items_count = 10
 
         output_filename = self.output().path
@@ -118,7 +119,7 @@ class TaskComputeRecommendations(luigi.Task):
             Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(output_filename),
                                                                          self.tenant))
 
-        #compute recommendations
+        # compute recommendations
         with open(input_filename, "r") as fpi, open(output_filename, "w") as fpo:
 
             reader = csv.reader(fpi)
@@ -150,10 +151,10 @@ class TaskComputeRecommendations(luigi.Task):
                         index += 1
                         count += len(results)
 
-                    #get item ids
+                    # get item ids
                     items_id = list(set([item["id"] for item in tmp_items]))
 
-                    #register computation
+                    # register computation
                     writer.writerow([self.tenant, item_id, len(items_id),
                                      VALUE_SEPARATOR.join(recommendation_types_used),
                                      VALUE_SEPARATOR.join(item_id for item_id in items_id)])
@@ -199,7 +200,7 @@ class TaskStoreRecommendationResults(luigi.Task):
         input_filename = self.input().path
         output_filename = self.output().path
 
-        #generate files
+        # generate files
         s3 = config.get("s3")
         s3bucket = s3["bucket"]
         s3path = os.path.join(s3["folder"], self.tenant, "recommendations")
@@ -240,7 +241,7 @@ class TaskStoreRecommendationResults(luigi.Task):
 
                     json.dump(data, f)
 
-        #upload files
+        # upload files
 
         Logger.info("{0} [Running AWS Sync from `{1}` to `{2}/{3}`]".format(task, data_dir, s3bucket, s3path))
 
@@ -253,7 +254,7 @@ class TaskStoreRecommendationResults(luigi.Task):
         Logger.info("{0} [Finished AWS Sync from `{1}` to `{2}/{3}` in {4}s]".format(task, data_dir, s3bucket, s3path,
                                                                                      end-start))
 
-        #delete generated files
+        # delete generated files
         with open(input_filename, "r") as fpi, open(output_filename, "w") as fpo:
 
             reader = csv.reader(fpi)
