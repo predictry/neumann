@@ -2,7 +2,7 @@ __author__ = 'guilherme'
 
 import os
 import os.path
-import configparser
+import ConfigParser
 
 from neumann.core import errors
 
@@ -12,16 +12,16 @@ CONFIG_FILE = ''.join([PROJECT_BASE, 'config.ini'])
 
 def get(section, option=None, type=None):
 
-    config = configparser.ConfigParser()
+    config = ConfigParser.ConfigParser()
 
     with open(CONFIG_FILE, "r") as fp:
-        config.read_file(fp)
+        config.readfp(fp)
 
         if option:
 
             try:
                 value = config.get(section, option)
-            except configparser.NoOptionError as exc:
+            except ConfigParser.NoOptionError as exc:
                 raise errors.ConfigurationError(exc)
             else:
 
@@ -33,7 +33,7 @@ def get(section, option=None, type=None):
 
             try:
                 data = dict(config.items(section))
-            except configparser.NoSectionError as exc:
+            except ConfigParser.NoSectionError as exc:
                 raise errors.ConfigurationError(exc)
             else:
                 return data

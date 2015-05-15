@@ -4,8 +4,12 @@ import os
 import os.path
 import json
 
+import requests
+
 from neumann.core.model import store
 from neumann.core.db import neo4j
+from neumann.core import errors
+from neumann.utils import config
 
 
 class StoreService(object):
@@ -29,17 +33,59 @@ class StoreService(object):
 
 
     @classmethod
-    @neo4j.CypherQuery("MATCH (n :`{LABEL}`) WHERE {{tenant}} IN LABELS(n) RETURN COUNT (n) AS n".format(
-        LABEL=store.LABEL_ITEM))
-    def get_item_count_for_tenant(cls, tenant, *args, **kwargs):
+    # @neo4j.CypherQuery("MATCH (n :`{LABEL}`) WHERE {{tenant}} IN LABELS(n) RETURN COUNT (n) AS n".format(
+    #     LABEL=store.LABEL_ITEM))
+    def get_item_count_for_tenant(cls, tenant):
         """
 
         :param tenant:
-        :param kwargs:
         :return:
         """
 
-        return kwargs["result"][0][0]
+        s = ["MATCH (n :`{LABEL}` :`{TENANT}`)",
+             "RETURN COUNT (n) AS c"]
+
+        template = '\n'.join(s)
+
+        statement = template.format(LABEL=store.LABEL_ITEM,
+                                    TENANT=tenant)
+
+        query = {
+            "query": statement,
+            "params": {
+            }
+        }
+
+        try:
+            cfg = config.get("neo4j")
+        except errors.ConfigurationError:
+            raise
+
+        username = cfg["username"]
+        password = cfg["password"]
+        host = cfg["host"]
+        port = int(cfg["port"])
+        endpoint = cfg["endpoint"]
+        protocol = cfg["protocol"]
+
+        url = "{protocol}://{host}:{port}/{endpoint}cypher/".format(
+            protocol=protocol,
+            host=host,
+            port=port,
+            endpoint=endpoint
+        )
+
+        session = requests.Session()
+        session.auth = (username, password)
+
+        r = session.post(url=url, data=json.dumps(query), timeout=300)
+
+        if r.status_code == 200:
+            content = r.json()
+
+            return content["data"][0][0]
+        else:
+            raise Exception(r.status_code)
 
     @classmethod
     @neo4j.CypherQuery("MATCH (n :`{LABEL}` {{id: {{id}} }}) RETURN n".format(LABEL=store.LABEL_ITEM))
