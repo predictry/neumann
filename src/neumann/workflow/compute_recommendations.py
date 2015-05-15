@@ -286,7 +286,7 @@ class TaskRunRecommendationWorkflow(luigi.Task):
 
         n = StoreService.get_item_count_for_tenant(tenant=self.tenant)
 
-        job_size = 10000
+        job_size = 1000
         jobs = list()
 
         c = 1
@@ -405,7 +405,7 @@ class TaskRunItemSyncWorkflow(luigi.Task):
 
         n = StoreService.get_item_count_for_tenant(tenant=self.tenant)
 
-        job_size = 10000
+        job_size = 1000
         jobs = list()
 
         c = 1
