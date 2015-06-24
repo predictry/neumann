@@ -20,8 +20,8 @@ function buildEnvironment(){
         export CC=/usr/bin/llvm-gcc
     fi
 
-    virtualenv $ENV
-#    python3 -m venv ${ENV}
+#    virtualenv $ENV
+    python3 -m venv ${ENV}
 
     PYTHONENV=${ENV}/bin
     SRCROOT=src

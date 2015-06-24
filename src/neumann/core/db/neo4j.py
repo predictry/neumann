@@ -1,5 +1,3 @@
-__author__ = 'guilherme'
-
 import re
 
 from neo4jrestclient.client import GraphDatabase, Node, Relationship
@@ -11,7 +9,6 @@ from neumann.core import errors
 from neumann.utils import config
 from neumann.utils.logger import Logger
 
-#note: do not reuse connections: timeout, re-connection slows down everything for some reason
 NEO_VAR_NAME_LABEL_REGEX = "^[a-zA-Z_][a-zA-Z0-9_]*$"
 re.compile(NEO_VAR_NAME_LABEL_REGEX)
 

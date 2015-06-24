@@ -1,6 +1,3 @@
-__author__ = 'guilherme'
-
-
 from neumann.utils import config
 from neumann.utils.logger import Logger
 

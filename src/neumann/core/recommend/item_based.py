@@ -1,5 +1,3 @@
-__author__ = 'guilherme'
-
 from collections import Counter
 from operator import itemgetter
 
@@ -7,6 +5,8 @@ from neumann.core import errors
 from neumann.core.model import store
 from neumann.core.db import neo4j
 
+
+# TODO : search paths from one session to another, regardless of nodes in between
 
 def __rank_most_popular_items(data, key, collection=False, n=5):
 

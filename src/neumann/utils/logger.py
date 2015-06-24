@@ -1,5 +1,3 @@
-__author__ = 'guilherme'
-
 import os
 import json
 import logging.config
