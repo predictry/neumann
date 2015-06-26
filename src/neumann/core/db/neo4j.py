@@ -355,6 +355,7 @@ def run_batch_query(queries, commit=True, timeout=300):
     :return:
     """
 
+    #TODO: see if there is a way to set timeout with restneo4jclient
     graph = get_connection()
     tx = graph.transaction(for_query=True)
 
@@ -369,7 +370,13 @@ def run_batch_query(queries, commit=True, timeout=300):
         results = tx.execute()
 
     except exceptions.TransactionException as exc:
-        Logger.error("Error initiating transaction:\n\t{0}".format(exc))
+
+        Logger.error(
+            'Transaction error:\n\t{0}'.format(
+                exc
+            )
+        )
+
         raise exc
 
     tx.commit()

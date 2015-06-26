@@ -6,18 +6,16 @@ from neumann.core import model
 
 def parse_record(filepath):
 
-    entries = []
-
-    with gzip.open(filepath, 'r') as fp:
+    with gzip.open(filepath, 'rb') as fp:
 
         for line in fp:
 
-            payload = json.loads(line)
+            payload = json.loads(line.decode('utf-8'))
 
             entry = parse_entry(payload)
 
             if entry:
-                entries.append(entry)
+                yield entry
 
 
 def parse_entry(payload):
@@ -25,11 +23,12 @@ def parse_entry(payload):
     try:
 
         objecttype = payload['type']
-        data = payload['data']
 
         if objecttype == 'metadata':
             pass
         elif objecttype == 'Session':
+
+            data = payload['data']
 
             session = model.Session(
                 id=data['id'],
@@ -42,6 +41,8 @@ def parse_entry(payload):
 
         elif objecttype == 'Agent':
 
+            data = payload['data']
+
             agent = model.Agent(
                 id=data['id'],
                 tenant=data['tenant'],
@@ -52,6 +53,8 @@ def parse_entry(payload):
             return agent
 
         elif objecttype == 'User':
+
+            data = payload['data']
 
             user = model.User(
                 id=data['id'],
@@ -64,6 +67,8 @@ def parse_entry(payload):
 
         elif objecttype == 'Item':
 
+            data = payload['data']
+
             item = model.Item(
                 id=data['id'],
                 tenant=data['tenant'],
@@ -74,6 +79,8 @@ def parse_entry(payload):
             return item
 
         elif objecttype == 'Action':
+
+            data = payload['data']
 
             action = model.Action(
                 name=data['name'],

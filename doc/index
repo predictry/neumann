@@ -1,0 +1,7 @@
+CREATE INDEX ON :`Search`(keywords);
+CREATE INDEX ON :`User`(id);
+CREATE INDEX ON :`Session`(id);
+CREATE INDEX ON :`Agent`(id);
+CREATE INDEX ON :`Item`(id);
+CREATE INDEX ON :`Item`(end_date);
+CREATE INDEX ON :`Item`(categories);

@@ -20,3 +20,7 @@ class UndefinedConfiguration(Exception):
 
 class ConfigurationError(Exception):
     pass
+
+
+class ProcessFailureError(Exception):
+    pass
