@@ -10,19 +10,28 @@ from neumann.workflows import harvestwk
 from neumann.utils.logger import Logger
 from neumann.core import errors
 from neumann.utils import config
-from neumann.ops import ITask
+from neumann.ops.interfaces import ITask
 
 _redis_conn = Redis()
+
+TASK_STATUS_WAITING = 'WAITING'
+TASK_STATUS_RUNNING = 'RUNNING'
+TASK_STATUS_STOPPED = 'STOPPED'
+
 
 @job('low', connection=_redis_conn, timeout=int(config.get('harvester', 'timeout')))
 class RecordImportTask(ITask):
 
-    def __init__(self, tenant, timestamp):
-
-        assert isinstance(self.timestamp, datetime.datetime)
-
-        self.tenant = tenant
-        self.timestamp = timestamp
+    # def __init__(self, id, status, tenant, timestamp):
+    #
+    #     assert isinstance(self.timestamp, datetime.datetime)
+    #
+    #     parameters = dict(
+    #         tenant=tenant,
+    #         timestamp=timestamp
+    #     )
+    #
+    #     super().__init__(id, status=status, parameters=parameters)
 
     def run(self):
 
@@ -68,5 +77,3 @@ class RecordImportTask(ITask):
                 raise errors.ProcessFailureError(
                     message
                 )
-
-# TODO: add task for computing recommendations, with higher priority (high)
