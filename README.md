@@ -1,6 +1,37 @@
-#Neumann 
-##Predictry's recommendation computing system
+#Neumann
+Service Provider: Neo4j
 
+##API
+
+###Services
+
+  - Endpoint: /services
+  
+```javascript
+{
+    "name": str,
+    "tenant": str,
+    "output": {
+        "store": str,
+        "fields": <K, V>
+    }
+}
+```
+
+Sample:
+```javascript
+{
+    "name": "Compute-Recommendation",
+    "tenant": "Store-A",
+    "output": {
+        "store": "S3",
+        "fields": {
+	        "bucket": "predictry",
+	        "path": "data/reco"
+        }
+    }
+}
+```
 
 ##Notes
 

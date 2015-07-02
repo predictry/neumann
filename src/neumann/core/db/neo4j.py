@@ -34,7 +34,7 @@ def get_connection():
 
     try:
 
-        uri = "{0}://{1}:{2}/{3}".format(protocol, host, port, endpoint)
+        uri = "{0}://{1}:{2}/{3}/".format(protocol, host, port, endpoint)
 
         db_conn = GraphDatabase(uri, username=username, password=password)
 
@@ -339,6 +339,7 @@ def run_query(query, commit=True, timeout=30):
         result = tx.execute()[0]
 
     except exceptions.TransactionException as exc:
+
         Logger.error("Error initiating transaction:\n\t{0}".format(exc))
         raise exc
 
