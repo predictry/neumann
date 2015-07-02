@@ -2,7 +2,7 @@ from collections import Counter
 from operator import itemgetter
 
 from neumann.core import errors
-from neumann.core.model import store
+from neumann.core import constants
 from neumann.core.db import neo4j
 
 
@@ -44,8 +44,8 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
         #todo: make this a global lambda
         action = lambda x: {
-            "oivt": store.REL_ACTION_TYPE_VIEW,
-            "oipt": store.REL_ACTION_TYPE_BUY,
+            "oivt": constants.REL_ACTION_TYPE_VIEW,
+            "oipt": constants.REL_ACTION_TYPE_BUY,
         }[x]
 
         template = """
@@ -58,8 +58,8 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        statements.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
-                                 ITEM_LABEL=store.LABEL_ITEM, REL=action(rtype)))
+        statements.append(template.format(TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
+                                 ITEM_LABEL=constants.LABEL_ITEM, REL=action(rtype)))
 
         params.append(neo4j.Parameter("item_id", item_id))
         params.append(neo4j.Parameter("limit", limit if limit else 10))
@@ -70,8 +70,8 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         #this query looks for items purchased/viewed by people that purchased/viewed this item
 
         action = lambda x: {
-            "oiv": store.REL_ACTION_TYPE_VIEW,
-            "oip": store.REL_ACTION_TYPE_BUY
+            "oiv": constants.REL_ACTION_TYPE_VIEW,
+            "oip": constants.REL_ACTION_TYPE_BUY
         }[x]
 
         template = """
@@ -83,8 +83,8 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        statements.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
-                                 ITEM_LABEL=store.LABEL_ITEM, USER_LABEL=store.LABEL_USER,
+        statements.append(template.format(TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
+                                 ITEM_LABEL=constants.LABEL_ITEM, USER_LABEL=constants.LABEL_USER,
                                  REL=action(rtype)))
 
         params.append(neo4j.Parameter("item_id", item_id))
@@ -93,8 +93,8 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
     elif rtype in ["anon-oiv", "anon-oip"]:
 
         action = lambda x: {
-            "anon-oiv": store.REL_ACTION_TYPE_VIEW,
-            "anon-oip": store.REL_ACTION_TYPE_BUY
+            "anon-oiv": constants.REL_ACTION_TYPE_VIEW,
+            "anon-oip": constants.REL_ACTION_TYPE_BUY
         }[x]
 
         template = """
@@ -106,8 +106,8 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        statements.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
-                                 ITEM_LABEL=store.LABEL_ITEM, AGENT_LABEL=store.LABEL_AGENT,
+        statements.append(template.format(TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
+                                 ITEM_LABEL=constants.LABEL_ITEM, AGENT_LABEL=constants.LABEL_AGENT,
                                  REL=action(rtype)))
 
         params.append(neo4j.Parameter("item_id", item_id))
@@ -116,9 +116,9 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
     elif rtype in ["trv", "trp", "trac"]:
 
         action = lambda x: {
-            "trv": store.REL_ACTION_TYPE_VIEW,
-            "trp": store.REL_ACTION_TYPE_BUY,
-            "trac": store.REL_ACTION_TYPE_ADD_TO_CART,
+            "trv": constants.REL_ACTION_TYPE_VIEW,
+            "trp": constants.REL_ACTION_TYPE_BUY,
+            "trac": constants.REL_ACTION_TYPE_ADD_TO_CART,
         }[x]
 
         template = """
@@ -134,12 +134,33 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        statements.append(template.format(TENANT=tenant, SESSION_LABEL=store.LABEL_SESSION,
-                                 ITEM_LABEL=store.LABEL_ITEM, REL=action(rtype)))
+        statements.append(template.format(TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
+                                 ITEM_LABEL=constants.LABEL_ITEM, REL=action(rtype)))
 
         params.append(neo4j.Parameter("n_actions", 1000))
         params.append(neo4j.Parameter("item_id", item_id))
         params.append(neo4j.Parameter("limit", 10))
+
+    elif rtype in ["duo"]:
+
+        template = """
+            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|`VIEW`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{item_id}}}})
+            WITH s, i
+            MATCH (s)-[ :`BUY`|`VIEW`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
+            WHERE x <> i
+            RETURN x AS item, COUNT(x) AS n
+            ORDER BY n DESC
+            LIMIT {{limit}}
+            """
+
+        statements.append(
+            template.format(
+                TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION, ITEM_LABEL=constants.LABEL_ITEM
+            )
+        )
+
+        params.append(neo4j.Parameter("item_id", item_id))
+        params.append(neo4j.Parameter("limit", limit if limit else 10))
 
     else:
 
@@ -154,7 +175,7 @@ def compute_recommendation(tenant, rtype, item_id, filters=None, limit=None, fie
 
     output = neo4j.run_query(query, commit=False)
 
-    if rtype in ["oivt", "oipt", "trv", "trp", "trac"]:
+    if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo"]:
 
         items = []
         item_count = 0
