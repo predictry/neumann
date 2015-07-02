@@ -8,7 +8,7 @@ from neumann.core.db import neo4j
 
 # TODO : search paths from one session to another, regardless of nodes in between
 
-def __rank_most_popular_items(data, key, collection=False, n=5):
+def _rank_most_popular_items(data, key, collection=False, n=5):
 
     all_items = list()
     item_store = dict()
@@ -34,7 +34,7 @@ def __rank_most_popular_items(data, key, collection=False, n=5):
     return sorted(items_ranking, key=itemgetter("frequency"), reverse=True)
 
 
-def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
+def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
     statements = list()
     params = list()
@@ -53,7 +53,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             WITH s, i
             MATCH (s)-[ :`{REL}`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
             WHERE x <> i
-            RETURN x AS item, COUNT(x) AS n
+            RETURN x.id AS item, COUNT(x) AS n
             ORDER BY n DESC
             LIMIT {{limit}}
             """
@@ -129,7 +129,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             WITH r, x
             ORDER BY r.datetime
             LIMIT {{n_actions}}
-            RETURN x AS item, COUNT(x) AS n
+            RETURN x.id AS item, COUNT(x) AS n
             ORDER BY n DESC
             LIMIT {{limit}}
             """
@@ -144,11 +144,11 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
     elif rtype in ["duo"]:
 
         template = """
-            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|`VIEW`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{item_id}}}})
+            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|`VIEW`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{itemId}}}})
             WITH s, i
             MATCH (s)-[ :`BUY`|`VIEW`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
             WHERE x <> i
-            RETURN x AS item, COUNT(x) AS n
+            RETURN x.id AS item, COUNT(x) AS n
             ORDER BY n DESC
             LIMIT {{limit}}
             """
@@ -159,7 +159,7 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             )
         )
 
-        params.append(neo4j.Parameter("item_id", item_id))
+        params.append(neo4j.Parameter("itemId", item_id))
         params.append(neo4j.Parameter("limit", limit if limit else 10))
 
     else:
@@ -169,41 +169,89 @@ def __generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
     return neo4j.Query(''.join(statements), params)
 
 
-def compute_recommendation(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
-    query = __generate(tenant, rtype, item_id, filters, limit, fields)
+class RecommendationProvider(object):
 
-    output = neo4j.run_query(query, commit=False)
+    @classmethod
+    def compute(cls, tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
-    if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo"]:
+        query = _generate(tenant, rtype, item_id, filters, limit, fields)
 
-        items = []
-        item_count = 0
+        output = neo4j.run_query(query)
 
-        for record in output:
-            item_count += record[1]
+        if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo"]:
 
-        for record in output:
-            item = record[0]["data"]
-            item["frequency"] = float("{0:.2f}".format(record[1]/float(item_count)))
-            items.append(item)
+            items = []
+            count = sum([record[1] for record in output])
 
-        result = items
+            for record in output:
+                item = dict(id=record[0])
+                item["frequency"] = float("{0:.2f}".format(record[1]/float(count)))
+                items.append(item)
 
-    elif rtype in ["oiv", "oip", "anon-oiv", "anon-oip"]:
+            result = items
 
-        collections = []
-        for record in output:
-            collections.append(record[0]["data"])
+        elif rtype in ["oiv", "oip", "anon-oiv", "anon-oip"]:
 
-        limit = limit if limit else 10
+            collections = []
+            for record in output:
+                collections.append(record[0]["data"])
 
-        most_popular_items = __rank_most_popular_items(collections, key="id", n=limit)
+            limit = limit if limit else 10
 
-        result = most_popular_items
+            most_popular_items = _rank_most_popular_items(collections, key="id", n=limit)
 
-    else:
+            result = most_popular_items
 
-        raise errors.UnknownRecommendationOption("Recommendation option `{0}` isn't recognized".format(rtype))
+        else:
 
-    return result
+            raise errors.UnknownRecommendationOption("Recommendation option `{0}` isn't recognized".format(rtype))
+
+        return result
+
+
+class BatchRecommendationProvider(object):
+
+    @classmethod
+    def compute(cls, tenant, rtype, items, filters=None, limit=None, fields=None):
+
+        queries = []
+        for item_id in items:
+
+            query = _generate(tenant, rtype, item_id, filters, limit, fields)
+            queries.append(query)
+
+        bresults = neo4j.run_batch_query(queries)
+        results = []
+
+        for output in bresults:
+
+            if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo"]:
+
+                items = []
+                count = sum([record[1] for record in output])
+
+                for record in output:
+                    item = dict(id=record[0])
+                    item["frequency"] = float("{0:.2f}".format(record[1]/float(count)))
+                    items.append(item)
+
+                results.append(items)
+
+            elif rtype in ["oiv", "oip", "anon-oiv", "anon-oip"]:
+
+                collections = []
+                for record in output:
+                    collections.append(record[0]["data"])
+
+                limit = limit if limit else 10
+
+                most_popular_items = _rank_most_popular_items(collections, key="id", n=limit)
+
+                results.append(most_popular_items)
+
+            else:
+
+                raise errors.UnknownRecommendationOption("Recommendation option `{0}` isn't recognized".format(rtype))
+
+        return results
