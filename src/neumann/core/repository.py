@@ -10,7 +10,7 @@ from neumann.core import errors
 from neumann.utils import config
 
 
-class RecommendationService(object):
+class Neo4jRepository(object):
 
     # @classmethod
     # @neo4j.CypherQuery('MATCH (n :`{LABEL}`) RETURN DISTINCT LABELS(n) AS labels'.format(
@@ -90,7 +90,7 @@ class RecommendationService(object):
 
         result = neo4j.run_query(query, timeout=300)
 
-        return [row['id'] for row in result]
+        return [row[0] for row in result]
 
     # @classmethod
     # def get_tenant_items_categories(cls, tenant):
@@ -126,33 +126,33 @@ class RecommendationService(object):
 #
 #         return items
 #
-#     @classmethod
-#     def download_tenant_items_to_a_folder(cls, tenant, dir, skip=0, limit=10):
-#
-#         params = [neo4j.Parameter('limit', limit), neo4j.Parameter('skip', skip)]
-#         statement = 'MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}'.format(
-#             LABEL=store.LABEL_ITEM, TENANT=tenant
-#         )
-#
-#         query = neo4j.Query(statement, params)
-#
-#         r = neo4j.run_query(query, commit=False, timeout=300)
-#
-#         items = [x[0].properties for x in r]
-#         paths = list()
-#
-#         for item in items:
-#
-#             file_name = '.'.join([item['id'], 'json'])
-#
-#             tmp_file = os.path.join(dir, file_name)
-#
-#             paths.append(tmp_file)
-#
-#             with open(tmp_file, 'w') as fp:
-#                 json.dump(item, fp)
-#
-#         n = len(items)
-#         del items[:]
-#
-#         return paths, n
+    @classmethod
+    def download_tenant_items_to_a_folder(cls, tenant, directory, skip=0, limit=10):
+
+        params = [neo4j.Parameter('limit', limit), neo4j.Parameter('skip', skip)]
+        statement = 'MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n AS item SKIP {{skip}} LIMIT {{limit}}'.format(
+            LABEL=constants.LABEL_ITEM, TENANT=tenant
+        )
+
+        query = neo4j.Query(statement, params)
+
+        r = neo4j.run_query(query, commit=False, timeout=300)
+
+        items = [x[0].properties for x in r]
+        paths = list()
+
+        for item in items:
+
+            file_name = '.'.join([item['id'], 'json'])
+
+            tmp_file = os.path.join(directory, file_name)
+
+            paths.append(tmp_file)
+
+            with open(tmp_file, 'w') as fp:
+                json.dump(item, fp)
+
+        n = len(items)
+        del items[:]
+
+        return paths, n
