@@ -85,6 +85,7 @@ RUN ln -s /app/nginx-app.conf /etc/nginx/sites-enabled/
 RUN ln -s /app/supervisor-app.conf /etc/supervisor/conf.d/
 
 EXPOSE 80
+EXPOSE 8082
 
 # Run services via supervisor
 CMD ["supervisord", "-n"]
