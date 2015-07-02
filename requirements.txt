@@ -10,4 +10,3 @@ requests==2.7.0
 neo4jrestclient==2.1.0
 schedule==0.3.1
 webargs==0.13.0
-dicttoxml==1.6.6
