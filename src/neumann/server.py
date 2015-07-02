@@ -4,6 +4,8 @@ from webargs import Arg
 from webargs.flaskparser import use_args
 from flask import Flask, Response, jsonify
 
+from neumann.usecases import ServiceUseCases
+
 
 app = Flask(__name__)
 
@@ -25,17 +27,20 @@ def handle_bad_request(err):
     }), 400
 
 
+# TODO: add service resolution (run server)
+# TODO: import data for the past 60 days for 2 tenants (superbuy first)
+# TODO: compute recommendation
 @app.route("/services/", methods=["POST"])
 @use_args({
     'name': Arg(str, required=True, location='json'),
     'tenant': Arg(str, required=True, location='json'),
-    'output': Arg({
-        'store': Arg(str, required=True),
-        'fields': Arg({
-            'bucket': Arg(str, required=False),
-            'path': Arg(str, required=False)
-        }, required=True),
-    }, required=True, location='json')
+    # 'output': Arg({
+    #     'store': Arg(str, required=True),
+    #     'fields': Arg({
+    #         'bucket': Arg(str, required=False),
+    #         'path': Arg(str, required=False)
+    #     }, required=True),
+    # }, required=True, location='json')
 })
 def service(args):
 
@@ -43,7 +48,9 @@ def service(args):
         "App": "{0}".format("Neumann")
     }
 
-    return Response(json.dumps(data), status=200, mimetype="application/json")
+    task = ServiceUseCases.queuetask(args)
+
+    return Response(json.dumps(task), status=200, mimetype="application/json")
 
 
 @app.errorhandler(500)

@@ -1,12 +1,11 @@
-import datetime
 import sys
 import subprocess
 import os.path
 
 from redis import Redis
 from rq.decorators import job
-
 from neumann.workflows import harvestwk
+from neumann.workflows import recommendwk
 from neumann.utils.logger import Logger
 from neumann.core import errors
 from neumann.utils import config
@@ -22,16 +21,9 @@ TASK_STATUS_STOPPED = 'STOPPED'
 @job('low', connection=_redis_conn, timeout=int(config.get('harvester', 'timeout')))
 class RecordImportTask(ITask):
 
-    # def __init__(self, id, status, tenant, timestamp):
-    #
-    #     assert isinstance(self.timestamp, datetime.datetime)
-    #
-    #     parameters = dict(
-    #         tenant=tenant,
-    #         timestamp=timestamp
-    #     )
-    #
-    #     super().__init__(id, status=status, parameters=parameters)
+    def __init__(self, timestamp, tenant):
+        self.timestamp = timestamp
+        self.tenant = tenant
 
     def run(self):
 
@@ -56,6 +48,57 @@ class RecordImportTask(ITask):
 
             message = '{0} ({1}, {2}) failed'.format(
                 classname, str(self.timestamp.date()), self.timestamp.hour
+            )
+
+            raise errors.ProcessFailureError(
+                message
+            )
+
+        else:
+
+            Logger.info(stdout)
+
+            if p.returncode == 0:
+                return True
+            else:
+
+                message = '{0} ({1}, {2}, {3}) failed'.format(
+                    classname, str(self.timestamp.date()), self.timestamp.hour, self.tenant
+                )
+
+                raise errors.ProcessFailureError(
+                    message
+                )
+
+
+@job('high', connection=_redis_conn, timeout=3600*2)
+class ComputeRecommendationTask(ITask):
+
+    def __init__(self, date, tenant):
+        self.date = date
+        self.tenant = tenant
+
+    def run(self):
+
+        filepath = os.path.abspath(recommendwk.__file__)
+        classname = recommendwk.TaskRunRecommendationWorkflow.__name__
+
+        Logger.info([sys.executable, filepath, classname,
+                     '--date', str(self.date),
+                     '--tenant', self.tenant])
+
+        p = subprocess.Popen([sys.executable, filepath, classname,
+                              '--date', str(self.date),
+                              '--tenant', self.tenant])
+
+        stdout, stderr = p.communicate()
+
+        if stderr:
+
+            Logger.error(stderr)
+
+            message = '{0} ({1}, {2}) failed'.format(
+                classname, str(self.date), self.tenant
             )
 
             raise errors.ProcessFailureError(
