@@ -10,7 +10,8 @@ class CypherTransformer(object):
 
         queries = []
 
-        template = 'MERGE (session :`{SESSION_LABEL}` :`{STORE_ID}` {{id: {{id}} }})'
+        template = 'MERGE (session :`{SESSION_LABEL}` :`{STORE_ID}` {{id: {{id}} }})' \
+                   '\nSET session.timestamp = {{timestamp}}'
 
         statements = [
             template.format(
@@ -19,7 +20,8 @@ class CypherTransformer(object):
             )
         ]
 
-        params = [neo4j.Parameter('id', entity.id)]
+        params = [neo4j.Parameter('id', entity.id),
+                  neo4j.Parameter('timestamp', entity.timestamp)]
 
         queries.append(neo4j.Query(statement=''.join(statements), params=params))
 
@@ -50,7 +52,7 @@ class CypherTransformer(object):
 
         queries = []
 
-        template = 'MERGE (item :`{ITEM_LABEL}` :`{STORE_ID}` {{id: {{id}} }})'
+        template = 'MERGE (item :`{ITEM_LABEL}` :`{STORE_ID}` {{id: {{id}} }})' \
 
         statements = [
             template.format(
