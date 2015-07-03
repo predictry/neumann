@@ -24,3 +24,11 @@ class ConfigurationError(Exception):
 
 class ProcessFailureError(Exception):
     pass
+
+
+class MissingParameterError(Exception):
+    pass
+
+
+class UnknownTaskError(Exception):
+    pass

@@ -17,14 +17,21 @@ TASK_STATUS_WAITING = 'WAITING'
 TASK_STATUS_RUNNING = 'RUNNING'
 TASK_STATUS_STOPPED = 'STOPPED'
 
+TASK_TYPE_COMPUTEREC = 'COMPUTEREC'
+TASK_TYPE_HARVESTDATA = 'HARVESTDATA'
 
-@job('low', connection=_redis_conn, timeout=int(config.get('harvester', 'timeout')))
+TASK_TYPES = (
+    TASK_TYPE_HARVESTDATA,
+    TASK_TYPE_COMPUTEREC
+)
+
 class RecordImportTask(ITask):
 
     def __init__(self, timestamp, tenant):
         self.timestamp = timestamp
         self.tenant = tenant
 
+    @job('low', connection=_redis_conn, timeout=int(config.get('harvester', 'timeout')))
     def run(self):
 
         filepath = os.path.abspath(harvestwk.__file__)
@@ -71,13 +78,13 @@ class RecordImportTask(ITask):
                 )
 
 
-@job('high', connection=_redis_conn, timeout=3600*2)
 class ComputeRecommendationTask(ITask):
 
     def __init__(self, date, tenant):
         self.date = date
         self.tenant = tenant
 
+    @job('high', connection=_redis_conn, timeout=3600*2)
     def run(self):
 
         filepath = os.path.abspath(recommendwk.__file__)
@@ -114,7 +121,7 @@ class ComputeRecommendationTask(ITask):
             else:
 
                 message = '{0} ({1}, {2}) failed'.format(
-                    classname, str(self.timestamp.date()), self.timestamp.hour
+                    classname, str(self.date), self.tenant
                 )
 
                 raise errors.ProcessFailureError(
