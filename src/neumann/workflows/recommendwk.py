@@ -17,13 +17,14 @@ from neumann.core.recommend import BatchRecommendationProvider
 from neumann.core import errors
 from neumann.utils.logger import Logger
 from neumann.utils import config
+from neumann.utils import io
 
+# if os.name == 'posix':
+#     tempfile.tempdir = "/tmp"
+# else:
+#     tempfile.tempdir = "out"
 
-if os.name == 'posix':
-    tempfile.tempdir = "/tmp"
-else:
-    tempfile.tempdir = "out"
-
+tempfile.tempdir = os.path.join(config.PROJECT_BASE, 'data/')
 
 CSV_EXTENSION = "csv"
 JSON_EXTENSION = "json"
@@ -43,7 +44,7 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
         file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant,
                                                  self.id, CSV_EXTENSION)
 
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
 
@@ -55,6 +56,9 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
         skip = 0 + self.start
 
         filename = self.output().path
+
+        if not os.path.exists(tempfile.gettempdir()):
+            os.makedirs(tempfile.gettempdir())
 
         if not os.path.exists(os.path.dirname(filename)):
             os.makedirs(os.path.dirname(filename))
@@ -104,7 +108,7 @@ class TaskComputeRecommendations(luigi.Task):
         file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant, self.id,
                                                  CSV_EXTENSION)
 
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
 
@@ -117,6 +121,9 @@ class TaskComputeRecommendations(luigi.Task):
 
         output_filename = self.output().path
         input_filename = self.input().path
+
+        if not os.path.exists(tempfile.gettempdir()):
+            os.makedirs(tempfile.gettempdir())
 
         if not os.path.exists(os.path.dirname(output_filename)):
             os.makedirs(os.path.dirname(output_filename))
@@ -213,7 +220,7 @@ class TaskStoreRecommendationResults(luigi.Task):
         file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant, self.id,
                                                  CSV_EXTENSION)
 
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
 
@@ -226,6 +233,12 @@ class TaskStoreRecommendationResults(luigi.Task):
 
         input_filename = self.input().path
         output_filename = self.output().path
+
+        if not os.path.exists(tempfile.gettempdir()):
+            os.makedirs(tempfile.gettempdir())
+
+        if not os.path.exists(os.path.dirname(output_filename)):
+            os.makedirs(os.path.dirname(output_filename))
 
         # generate files
         s3 = config.get("s3")
@@ -266,7 +279,7 @@ class TaskStoreRecommendationResults(luigi.Task):
 
                     data = dict(items=items, algo=recommendation_types)
 
-                    json.dump(data, f)
+                    json.dump(data, f, cls=io.DateTimeEncoder)
 
         # upload files
 
@@ -329,11 +342,17 @@ class TaskRunRecommendationWorkflow(luigi.Task):
 
         file_name = "{0}_{1}_{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
 
     def run(self):
+
+        if not os.path.exists(tempfile.gettempdir()):
+            os.makedirs(tempfile.gettempdir())
+
+        if not os.path.exists(os.path.dirname(self.output().path)):
+            os.makedirs(os.path.dirname(self.output().path))
 
         with self.output().open("w") as fp:
 
@@ -357,7 +376,7 @@ class TaskSyncItemsWithS3(luigi.Task):
         file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant,
                                                  self.id, CSV_EXTENSION)
 
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
 
@@ -448,7 +467,7 @@ class TaskRunItemSyncWorkflow(luigi.Task):
 
         file_name = "{0}_{1}_{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
 
@@ -517,7 +536,7 @@ class TaskRunItemSyncWorkflow(luigi.Task):
 # #
 # #         file_name = "{0}_{1}_{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
 # #
-# #         file_path = os.path.join(tempfile.gettempdir(), file_name)
+# #         file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 # #
 # #         return luigi.LocalTarget(file_path)
 # #
@@ -568,7 +587,7 @@ class TaskRunItemSyncWorkflow(luigi.Task):
 # #
 # #             with open(output_filename, "w") as fp:
 # #
-# #                 json.dump(dict(items=items, count=int(count)), fp)
+# #                 json.dump(dict(items=items, count=int(count)), fp, cls=io.DateTimeEncoder)
 # #
 # #             categories[category] = len(items)
 # #

@@ -1,6 +1,10 @@
 from neumann.core import errors
 from neumann import tasks
 
+from neumann.tasks import RecordImportTask
+from neumann.tasks import ComputeRecommendationTask
+
+
 class ServiceUseCases(object):
 
     @classmethod
@@ -29,12 +33,10 @@ class RecordImportUseCases(object):
     @classmethod
     def harvest(cls, timestamp, tenant):
 
-        from neumann.tasks import RecordImportTask
-
-        task = RecordImportTask(timestamp=timestamp, tenant=tenant)
+        job = RecordImportTask(timestamp=timestamp, tenant=tenant)
 
         # queue task
-        task.run()
+        job.run()
 
 
 class ComputeRecommendationUseCases(object):
@@ -42,8 +44,6 @@ class ComputeRecommendationUseCases(object):
     @classmethod
     def compute(cls, date, tenant):
 
-        from neumann.tasks import ComputeRecommendationTask
+        job = ComputeRecommendationTask(date=date, tenant=tenant)
 
-        task = ComputeRecommendationTask(date=date, tenant=tenant)
-
-        task.run()
+        job.run()

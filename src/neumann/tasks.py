@@ -25,27 +25,33 @@ TASK_TYPES = (
     TASK_TYPE_COMPUTEREC
 )
 
+
 class RecordImportTask(ITask):
 
     def __init__(self, timestamp, tenant):
         self.timestamp = timestamp
         self.tenant = tenant
 
-    @job('low', connection=_redis_conn, timeout=int(config.get('harvester', 'timeout')))
     def run(self):
+        record_import_task.delay(self.timestamp, self.tenant)
+
+@job('low', connection=_redis_conn, timeout=int(config.get('harvester', 'timeout')))
+def record_import_task(timestamp, tenant):
+
+    def execute(timestamp, tenant):
 
         filepath = os.path.abspath(harvestwk.__file__)
         classname = harvestwk.TaskImportRecordIntoNeo4j.__name__
 
         Logger.info([sys.executable, filepath, classname,
-                     '--date', str(self.timestamp.date()),
-                     '--hour', str(self.timestamp.hour),
-                     '--tenant', self.tenant])
+                     '--date', str(timestamp.date()),
+                     '--hour', str(timestamp.hour),
+                     '--tenant', tenant])
 
         p = subprocess.Popen([sys.executable, filepath, classname,
-                              '--date', str(self.timestamp.date()),
-                              '--hour', str(self.timestamp.hour),
-                              '--tenant', self.tenant])
+                              '--date', str(timestamp.date()),
+                              '--hour', str(timestamp.hour),
+                              '--tenant', tenant])
 
         stdout, stderr = p.communicate()
 
@@ -54,7 +60,7 @@ class RecordImportTask(ITask):
             Logger.error(stderr)
 
             message = '{0} ({1}, {2}) failed'.format(
-                classname, str(self.timestamp.date()), self.timestamp.hour
+                classname, str(timestamp.date()), timestamp.hour
             )
 
             raise errors.ProcessFailureError(
@@ -70,12 +76,14 @@ class RecordImportTask(ITask):
             else:
 
                 message = '{0} ({1}, {2}, {3}) failed'.format(
-                    classname, str(self.timestamp.date()), self.timestamp.hour, self.tenant
+                    classname, str(timestamp.date()), timestamp.hour, tenant
                 )
 
                 raise errors.ProcessFailureError(
                     message
                 )
+
+    return execute(timestamp=timestamp, tenant=tenant)
 
 
 class ComputeRecommendationTask(ITask):
@@ -84,19 +92,25 @@ class ComputeRecommendationTask(ITask):
         self.date = date
         self.tenant = tenant
 
-    @job('high', connection=_redis_conn, timeout=3600*2)
     def run(self):
+        compute_recommendation_task.delay(self.date, self.tenant)
+
+
+@job('high', connection=_redis_conn, timeout=3600*2)
+def compute_recommendation_task(date, tenant):
+    
+    def execute(date, tenant):
 
         filepath = os.path.abspath(recommendwk.__file__)
         classname = recommendwk.TaskRunRecommendationWorkflow.__name__
 
         Logger.info([sys.executable, filepath, classname,
-                     '--date', str(self.date),
-                     '--tenant', self.tenant])
+                     '--date', str(date),
+                     '--tenant', tenant])
 
         p = subprocess.Popen([sys.executable, filepath, classname,
-                              '--date', str(self.date),
-                              '--tenant', self.tenant])
+                              '--date', str(date),
+                              '--tenant', tenant])
 
         stdout, stderr = p.communicate()
 
@@ -105,7 +119,7 @@ class ComputeRecommendationTask(ITask):
             Logger.error(stderr)
 
             message = '{0} ({1}, {2}) failed'.format(
-                classname, str(self.date), self.tenant
+                classname, str(date), tenant
             )
 
             raise errors.ProcessFailureError(
@@ -121,9 +135,11 @@ class ComputeRecommendationTask(ITask):
             else:
 
                 message = '{0} ({1}, {2}) failed'.format(
-                    classname, str(self.date), self.tenant
+                    classname, str(date), tenant
                 )
 
                 raise errors.ProcessFailureError(
                     message
                 )
+    
+    return execute(date=date, tenant=tenant)

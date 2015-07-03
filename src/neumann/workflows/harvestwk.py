@@ -17,10 +17,11 @@ from neumann.core.db import neo4j
 from neumann.core.transformer import CypherTransformer
 from neumann.utils import config
 from neumann.utils.logger import Logger
+from neumann.utils import io
 
 
-tempfile.tempdir = os.path.join(config.PROJECT_BASE, 'data/out')
-JSON_EXTENSION = "json"
+tempfile.tempdir = os.path.join(config.PROJECT_BASE, 'data/')
+JSON_EXTENSION = "JSON"
 
 
 class TaskDownloadRecord(luigi.Task):
@@ -34,7 +35,7 @@ class TaskDownloadRecord(luigi.Task):
             self.__class__.__name__, self.date.__str__(), self.hour, JSON_EXTENSION
         )
 
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
 
@@ -56,6 +57,9 @@ class TaskDownloadRecord(luigi.Task):
         if not os.path.exists(tempfile.gettempdir()):
             os.makedirs(tempfile.gettempdir())
 
+        if not os.path.exists(os.path.dirname(self.output().path)):
+            os.makedirs(os.path.dirname(self.output().path))
+
         response = requests.get(url, params)
 
         # response.
@@ -70,7 +74,10 @@ class TaskDownloadRecord(luigi.Task):
                 uri = data['uri']
 
                 filename = uri.split('/')[-1]
-                filepath = os.path.join(tempfile.gettempdir(), filename)
+                filepath = os.path.join(tempfile.gettempdir(), 'tmp', filename)
+
+                if not os.path.exists(os.path.dirname(filepath)):
+                    os.makedirs(os.path.dirname(filepath))
 
                 _, stat = aws.S3.download_file(uri, filepath)
 
@@ -80,7 +87,7 @@ class TaskDownloadRecord(luigi.Task):
 
                     with open(self.output().path, 'w') as fp:
 
-                        json.dump(out, fp)
+                        json.dump(out, fp, cls=io.DateTimeEncoder)
 
                     Logger.info(
                         'Downloaded `{0}` to `{1}`'.format(
@@ -111,7 +118,7 @@ class TaskDownloadRecord(luigi.Task):
 
             with open(self.output().path, 'w') as fp:
 
-                json.dump(out, fp)
+                json.dump(out, fp, cls=io.DateTimeEncoder)
 
         else:
             # unknown problem
@@ -143,16 +150,19 @@ class TaskImportRecordIntoNeo4j(luigi.Task):
     def output(self):
 
         file_name = "{0}_{1}_{2}_{3}.{4}".format(
-            self.__class__.__name__, self.date.__str__(), self.hour,  self.tenant, JSON_EXTENSION
+            self.__class__.__name__, self.date.__str__(), self.hour, self.tenant, JSON_EXTENSION
         )
 
-        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
 
     def run(self):
 
         # TODO: Use RQ priorities. Computation takes precedence over other queues
+
+        if not os.path.exists(os.path.dirname(self.output().path)):
+            os.makedirs(os.path.dirname(self.output().path))
 
         with open(self.input().path, 'r') as fp:
 
@@ -219,11 +229,12 @@ class TaskImportRecordIntoNeo4j(luigi.Task):
                         )
                     )
 
+                # delete log file
                 os.remove(recordpath)
 
                 with open(self.output().path, 'w') as wp:
                     out = dict(timestamp=datetime.datetime.utcnow())
-                    json.dump(out, wp)
+                    json.dump(out, wp, cls=io.DateTimeEncoder)
 
             else:
 
