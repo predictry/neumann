@@ -1,6 +1,9 @@
 #Neumann
 Service Provider: Neo4j
 
+##Configuration
+See [doc](doc/Configuration.md) system for configuration
+
 ##API
 
 ###Services

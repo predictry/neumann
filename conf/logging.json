@@ -1,0 +1,53 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "simple": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        }
+    },
+
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "WARNING",
+            "formatter": "simple",
+            "stream": "ext://sys.stdout"
+        },
+
+        "info_file_handler": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "when": "midnight",
+            "interval": 1,
+            "level": "INFO",
+            "formatter": "simple",
+            "filename": "predictry.neumann.info.log",
+            "backupCount": 2,
+            "encoding": "utf8"
+        },
+        "error_file_handler": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "when": "midnight",
+            "interval": 1,
+            "level": "ERROR",
+            "formatter": "simple",
+            "filename": "predictry.neumann.error.log",
+            "backupCount": 2,
+            "encoding": "utf8"
+        }
+    },
+
+    "loggers": {
+        "neumann": {
+            "level": "INFO",
+            "handlers": ["console", "info_file_handler", "error_file_handler"],
+            "propagate": 0
+        }
+    },
+
+    "root": {
+        "level": "ERROR",
+        "handlers": ["console", "info_file_handler", "error_file_handler"]
+    }
+}
+
