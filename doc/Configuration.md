@@ -2,7 +2,7 @@
 
 All configurations files should be on the base project path, when building the [docker image](../Dockerfile).
 
-##Neumann
+##[Neumann](https://github.com/predictry/neumann)
 
 ###config.ini
 Credentials, service parameters (e.g. execution timeout, db credentials...)
@@ -23,21 +23,21 @@ Workflow execution
 [Sample](../conf/client.cfg)
 
 
-##Nginx
+##[Nginx](https://github.com/nginx/nginx)
 Proxy Server. Fronts uWSGI
 
 ###nginx-app.conf
 [Sample](../conf/nginx-app.conf)
 
 
-##Supervisor
-Services execution inside container
+##[Supervisor](https://github.com/Supervisor/supervisor)
+Process execution inside container
 
 ###supervisor-app.conf
 [Sample](../conf/supervisor-app.conf)
 
 
-##UWSGI
+##[uWSGI](https://github.com/unbit/uwsgi)
 Web server
 
 ###uwsgi.ini
