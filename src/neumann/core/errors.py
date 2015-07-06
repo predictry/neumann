@@ -32,3 +32,7 @@ class MissingParameterError(Exception):
 
 class UnknownTaskError(Exception):
     pass
+
+
+class UnsupportedTaskError(Exception):
+    pass

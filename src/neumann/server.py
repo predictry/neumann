@@ -4,8 +4,9 @@ from webargs import Arg
 from webargs.flaskparser import use_args
 from flask import Flask, Response, jsonify
 
-from neumann.usecases import ServiceUseCases
-
+from neumann import services
+from neumann.core import errors
+from neumann.utils import io
 
 app = Flask(__name__)
 
@@ -13,6 +14,49 @@ app = Flask(__name__)
 def index():
 
     return Response('Go!', status=200, mimetype='text/plain')
+
+
+@app.route("/services/import-record", methods=["POST"])
+@use_args({
+    'tenant': Arg(str, required=True, location='json'),
+    'date': Arg(str, required=True, location='json'),
+    'hour': Arg(int, required=True, validate=lambda x: 0 <= x <= 23, error='Invalid hour', location='json')
+})
+def harvest(args):
+
+    try:
+
+        timestamp = io.parse_timestamp(args['date'], str(args['hour']))
+        tenant = args['tenant']
+        task = services.RecordImportService.harvest(timestamp, tenant)
+
+    except ValueError as exc:
+        message = 'Invalid date: {0}. Format should be `%Y-%m-%d`'.format(args['date'])
+        Logger.error(exc)
+        return jsonify(dict(message=message)), 400
+
+    return Response(json.dumps(task, cls=io.DateTimeEncoder), status=200, mimetype="application/json")
+
+
+@app.route("/services/recommend", methods=["POST"])
+@use_args({
+    'tenant': Arg(str, required=True, location='json'),
+    'date': Arg(str, required=True, location='json')
+})
+def recommend(args):
+
+    try:
+
+        date = io.parse_date(args['date'])
+        tenant = args['tenant']
+        task = services.RecommendService.compute(str(date.date()), tenant)
+
+    except ValueError as exc:
+        message = 'Invalid date: {0}. Format should be `YYYY-mm-dd`'.format(args['date'])
+        Logger.error(exc)
+        return jsonify(dict(message=message)), 400
+
+    return Response(json.dumps(task, cls=io.DateTimeEncoder), status=200, mimetype="application/json")
 
 
 @app.errorhandler(400)
@@ -25,32 +69,6 @@ def handle_bad_request(err):
     return jsonify({
         'message': err_message,
     }), 400
-
-
-# TODO: add service resolution (run server)
-# TODO: import data for the past 60 days for 2 tenants (superbuy first)
-# TODO: compute recommendation
-@app.route("/services/", methods=["POST"])
-@use_args({
-    'name': Arg(str, required=True, location='json'),
-    'tenant': Arg(str, required=True, location='json'),
-    # 'output': Arg({
-    #     'store': Arg(str, required=True),
-    #     'fields': Arg({
-    #         'bucket': Arg(str, required=False),
-    #         'path': Arg(str, required=False)
-    #     }, required=True),
-    # }, required=True, location='json')
-})
-def service(args):
-
-    data = {
-        "App": "{0}".format("Neumann")
-    }
-
-    task = ServiceUseCases.queuetask(args)
-
-    return Response(json.dumps(task), status=200, mimetype="application/json")
 
 
 @app.errorhandler(500)

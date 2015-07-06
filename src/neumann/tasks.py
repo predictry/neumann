@@ -17,8 +17,8 @@ TASK_STATUS_WAITING = 'WAITING'
 TASK_STATUS_RUNNING = 'RUNNING'
 TASK_STATUS_STOPPED = 'STOPPED'
 
-TASK_TYPE_COMPUTEREC = 'COMPUTEREC'
-TASK_TYPE_HARVESTDATA = 'HARVESTDATA'
+TASK_TYPE_COMPUTEREC = 'recommend'
+TASK_TYPE_HARVESTDATA = 'harvest'
 
 TASK_TYPES = (
     TASK_TYPE_HARVESTDATA,
@@ -31,6 +31,12 @@ class RecordImportTask(ITask):
     def __init__(self, timestamp, tenant):
         self.timestamp = timestamp
         self.tenant = tenant
+
+    def __str__(self):
+
+        return '{0}[timestamp={1}, tenant={2}]'.format(
+            self.__class__.__name__, str(self.timestamp), self.tenant
+        )
 
     def run(self):
         record_import_task.delay(self.timestamp, self.tenant)
@@ -94,6 +100,12 @@ class ComputeRecommendationTask(ITask):
 
     def run(self):
         compute_recommendation_task.delay(self.date, self.tenant)
+
+    def __str__(self):
+
+        return '{0}[date={1}, tenant={2}]'.format(
+            self.__class__.__name__, self.date, self.tenant
+        )
 
 
 @job('high', connection=_redis_conn, timeout=3600*2)
