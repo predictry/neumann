@@ -5,9 +5,14 @@ All configurations files should be on the base project path, when building the [
 ##[Neumann](https://github.com/predictry/neumann)
 
 ###config.ini
-Credentials, service parameters (e.g. execution timeout, db credentials...)
+Credentials, app configuration (e.g. heartbeat interval, db credentials...)
 
 [Sample](../conf/config.ini)
+
+###tasks.ini
+Configuration for specific task services supported by the SP.
+
+[Sample](../conf/tasks.ini)
 
 ###logging.json
 Application logging
