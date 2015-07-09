@@ -326,7 +326,7 @@ class TaskRunRecommendationWorkflow(luigi.Task):
 
         n = Neo4jRepository.get_item_count_for_tenant(tenant=self.tenant)
 
-        job_size = 150000
+        job_size = 50000
         jobs = list()
 
         c = 1
