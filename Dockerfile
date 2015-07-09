@@ -84,6 +84,8 @@ RUN rm /etc/nginx/sites-enabled/default
 RUN ln -s /app/nginx-app.conf /etc/nginx/sites-enabled/
 RUN ln -s /app/supervisor-app.conf /etc/supervisor/conf.d/
 
+RUN chown -R dispatch:dispatch ${APPDIR}
+
 EXPOSE 80
 EXPOSE 8082
 
