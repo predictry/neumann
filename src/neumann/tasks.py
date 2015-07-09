@@ -1,6 +1,7 @@
 import sys
 import subprocess
 import os.path
+import configparser
 
 from redis import Redis
 from rq.decorators import job
@@ -18,12 +19,43 @@ TASK_STATUS_RUNNING = 'RUNNING'
 TASK_STATUS_STOPPED = 'STOPPED'
 
 TASK_TYPE_COMPUTEREC = 'recommend'
-TASK_TYPE_HARVESTDATA = 'harvest'
+TASK_TYPE_RECORDIMPORT = 'record-import'
 
 TASK_TYPES = (
-    TASK_TYPE_HARVESTDATA,
+    TASK_TYPE_RECORDIMPORT,
     TASK_TYPE_COMPUTEREC
 )
+
+TASK_CONFIG = os.path.join(config.PROJECT_BASE, 'tasks.ini')
+
+
+def taskconfig(task, option=None, fallback=None, type=None):
+
+    config = configparser.ConfigParser()
+
+    with open(TASK_CONFIG, "r") as fp:
+        config.read_file(fp)
+
+        if option:
+
+            try:
+                value = config.get(task, option, fallback=fallback)
+            except configparser.NoOptionError as exc:
+                raise errors.ConfigurationError(exc)
+            else:
+
+                if type and hasattr(type, '__call__'):
+                    return type(value)
+                else:
+                    return value
+        else:
+
+            try:
+                data = dict(config.items(task))
+            except configparser.NoSectionError as exc:
+                raise errors.ConfigurationError(exc)
+            else:
+                return data
 
 
 class RecordImportTask(ITask):
@@ -39,25 +71,28 @@ class RecordImportTask(ITask):
         )
 
     def run(self):
+
         record_import_task.delay(self.timestamp, self.tenant)
 
-@job('low', connection=_redis_conn, timeout=int(config.get('harvester', 'timeout')))
+
+@job('low', connection=_redis_conn, timeout=int(taskconfig('import-record', 'timeout', 1800)))
 def record_import_task(timestamp, tenant):
 
     def execute(timestamp, tenant):
 
         filepath = os.path.abspath(harvestwk.__file__)
         classname = harvestwk.TaskImportRecordIntoNeo4j.__name__
+        workers = taskconfig('import-record', 'workers', 1)
 
-        Logger.info([sys.executable, filepath, classname,
-                     '--date', str(timestamp.date()),
-                     '--hour', str(timestamp.hour),
-                     '--tenant', tenant])
+        statements = [sys.executable, filepath, classname,
+                      '--date', str(timestamp.date()),
+                      '--hour', str(timestamp.hour),
+                      '--tenant', tenant,
+                      '--workers', str(workers)]
 
-        p = subprocess.Popen([sys.executable, filepath, classname,
-                              '--date', str(timestamp.date()),
-                              '--hour', str(timestamp.hour),
-                              '--tenant', tenant])
+        Logger.info(statements)
+
+        p = subprocess.Popen(statements)
 
         stdout, stderr = p.communicate()
 
@@ -108,23 +143,23 @@ class ComputeRecommendationTask(ITask):
         )
 
 
-@job('high', connection=_redis_conn, timeout=3600*2)
+@job('high', connection=_redis_conn, timeout=int(taskconfig('recommend', 'timeout', 3600*2)))
 def compute_recommendation_task(date, tenant):
     
     def execute(date, tenant):
 
         filepath = os.path.abspath(recommendwk.__file__)
         classname = recommendwk.TaskRunRecommendationWorkflow.__name__
+        workers = taskconfig('import-record', 'workers', 4)
 
-        Logger.info([sys.executable, filepath, classname,
-                     '--date', str(date),
-                     '--tenant', tenant,
-                     '--workers', str(4)]) # configure this on SP
+        statements = [sys.executable, filepath, classname,
+                      '--date', str(date),
+                      '--tenant', tenant,
+                      '--workers', str(workers)]
 
-        p = subprocess.Popen([sys.executable, filepath, classname,
-                              '--date', str(date),
-                              '--tenant', tenant,
-                              '--workers', str(4)])
+        Logger.info(statements)
+
+        p = subprocess.Popen(statements)
 
         stdout, stderr = p.communicate()
 

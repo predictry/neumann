@@ -17,7 +17,7 @@ class RecordImportService(object):
 
         Logger.info('Queued {0}'.format(job))
 
-        return dict(task=tasks.TASK_TYPE_HARVESTDATA, date=str(timestamp.date()), hour=timestamp.hour, tenant=tenant)
+        return dict(task=tasks.TASK_TYPE_RECORDIMPORT, date=str(timestamp.date()), hour=timestamp.hour, tenant=tenant)
 
 
 class RecommendService(object):
