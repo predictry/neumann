@@ -118,11 +118,13 @@ def compute_recommendation_task(date, tenant):
 
         Logger.info([sys.executable, filepath, classname,
                      '--date', str(date),
-                     '--tenant', tenant])
+                     '--tenant', tenant,
+                     '--workers', str(4)]) # configure this on SP
 
         p = subprocess.Popen([sys.executable, filepath, classname,
                               '--date', str(date),
-                              '--tenant', tenant])
+                              '--tenant', tenant,
+                              '--workers', str(4)])
 
         stdout, stderr = p.communicate()
 
