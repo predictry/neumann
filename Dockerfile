@@ -74,6 +74,9 @@ ENV BOTO_CONFIG ${APPDIR}/boto.cfg
 # Luigi config
 ADD client.cfg /etc/luigi/luigi.cfg
 
+# Tasks config
+ADD tasks.ini ${APPDIR}/
+
 USER root
 
 #supervisor
@@ -81,8 +84,8 @@ RUN service supervisor restart
 RUN echo "daemon off;" >> /etc/nginx/nginx.conf
 RUN rm /etc/nginx/sites-enabled/default
 
-RUN ln -s /app/nginx-app.conf /etc/nginx/sites-enabled/
-RUN ln -s /app/supervisor-app.conf /etc/supervisor/conf.d/
+RUN ln -s ${APPDIR}/nginx-app.conf /etc/nginx/sites-enabled/
+RUN ln -s ${APPDIR}/supervisor-app.conf /etc/supervisor/conf.d/
 
 RUN chown -R dispatch:dispatch ${APPDIR}
 
