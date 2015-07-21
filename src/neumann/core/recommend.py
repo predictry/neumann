@@ -49,7 +49,7 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         template = """
             MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|:`VIEW`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{item_id}}}})
             WITH s, i
-            MATCH (s)-[ :`:`BUY`|:`VIEW`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
+            MATCH (s)-[:`BUY`|:`VIEW`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
             WHERE x <> i
             RETURN x.id AS item, COUNT(x) AS n
             ORDER BY n DESC
