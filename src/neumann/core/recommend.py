@@ -39,10 +39,8 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
     statements = list()
     params = list()
 
-    #other items viewed/purchased together
     if rtype in ["oivt", "oipt"]:
 
-        #todo: make this a global lambda
         action = lambda x: {
             "oivt": constants.REL_ACTION_TYPE_VIEW,
             "oipt": constants.REL_ACTION_TYPE_BUY,
@@ -58,16 +56,26 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             LIMIT {{limit}}
             """
 
-        statements.append(template.format(TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
-                                 ITEM_LABEL=constants.LABEL_ITEM, REL=action(rtype)))
+        statements.append(
+            template.format(
+                TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
+                ITEM_LABEL=constants.LABEL_ITEM, REL=action(rtype)
+            )
+        )
 
         params.append(neo4j.Parameter("item_id", item_id))
         params.append(neo4j.Parameter("limit", limit if limit else 10))
 
     elif rtype in ["oiv", "oip"]:
 
-        #todo: user vs agent as default?
-        #this query looks for items purchased/viewed by people that purchased/viewed this item
+        # MATCH (i :`tenant` :`Item` {id: "itemId"})<-[r1 :`BUY`|:`VIEW`]-(s1 :`tenant` :`Session`)-[:`BY`]->
+        # (u :`tenant` :`User`)<-[:`BY`]-(s2 :`tenant` :`Session`)-[:`BUY`|:`VIEW`]->(x :`tenant` :`Item`)
+        # WHERE i <> x AND s1 <> s2
+        # WITH x
+        # LIMIT 300
+        # RETURN x.id AS item, COUNT(x) AS n
+        # ORDER BY n DESC
+        # LIMIT 10
 
         action = lambda x: {
             "oiv": constants.REL_ACTION_TYPE_VIEW,
@@ -79,18 +87,35 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             -[:`BY`]->(u :`{TENANT}` :`{USER_LABEL}`)<-[:`BY`]-(s2 :`{TENANT}` :`{SESSION_LABEL}`)-[:`{REL}`]\
             ->(x :`{TENANT}` :`{ITEM_LABEL}`)
             WHERE i <> x AND s1 <> s2
-            RETURN x
+            WITH x
+            LIMIT {{volume}}
+            RETURN x.id AS item, COUNT(x) AS n
+            ORDER BY n DESC
             LIMIT {{limit}}
             """
 
-        statements.append(template.format(TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
-                                 ITEM_LABEL=constants.LABEL_ITEM, USER_LABEL=constants.LABEL_USER,
-                                 REL=action(rtype)))
+        statements.append(
+            template.format(
+                TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
+                ITEM_LABEL=constants.LABEL_ITEM, USER_LABEL=constants.LABEL_USER,
+                REL=action(rtype)
+            )
+        )
 
         params.append(neo4j.Parameter("item_id", item_id))
-        params.append(neo4j.Parameter("limit", 300))
+        params.append(neo4j.Parameter("volume", 300))
+        params.append(neo4j.Parameter("limit", 10))
 
     elif rtype in ["anon-oiv", "anon-oip"]:
+
+        # MATCH (i :`tenant` :`Item` {id: "itemId"})<-[r1 :`BUY`|:`VIEW`]-(s1 :`tenant` :`Session`)-[:`FROM`]->
+        # (u :`tenant` :`Agent`)<-[:`FROM`]-(s2 :`tenant` :`Session`)-[:`BUY`|:`VIEW`]->(x :`tenant` :`Item`)
+        # WHERE i <> x AND s1 <> s2
+        # WITH x
+        # LIMIT 300
+        # RETURN x.id AS item, COUNT(x) AS n
+        # ORDER BY n DESC
+        # LIMIT 10
 
         action = lambda x: {
             "anon-oiv": constants.REL_ACTION_TYPE_VIEW,
@@ -102,18 +127,28 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
             -[:`FROM`]->(a :`{TENANT}` :`{AGENT_LABEL}`)<-[:`FROM`]-(s2 :`{TENANT}` :`{SESSION_LABEL}`)-[:`{REL}`]\
             ->(x :`{TENANT}` :`{ITEM_LABEL}`)
             WHERE i <> x AND s1 <> s2
-            RETURN x
+            WITH x
+            LIMIT {{volume}}
+            RETURN x.id AS item, COUNT(x) AS n
+            ORDER BY n DESC
             LIMIT {{limit}}
             """
 
-        statements.append(template.format(TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
-                                 ITEM_LABEL=constants.LABEL_ITEM, AGENT_LABEL=constants.LABEL_AGENT,
-                                 REL=action(rtype)))
+        statements.append(
+            template.format(
+                TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
+                ITEM_LABEL=constants.LABEL_ITEM, AGENT_LABEL=constants.LABEL_AGENT,
+                REL=action(rtype)
+            )
+        )
 
         params.append(neo4j.Parameter("item_id", item_id))
-        params.append(neo4j.Parameter("limit", 300))
+        params.append(neo4j.Parameter("volume", 300))
+        params.append(neo4j.Parameter("limit", 10))
 
     elif rtype in ["trv", "trp", "trac"]:
+
+        # TODO: deprecate
 
         action = lambda x: {
             "trv": constants.REL_ACTION_TYPE_VIEW,
@@ -143,6 +178,14 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
     elif rtype in ["duo"]:
 
+        # MATCH (s :`tenant` :`Session`)-[:`BUY`|`VIEW`]->(i :`tenant` :`Item` {id : "tenantId"})
+        # WITH s, i
+        # MATCH (s)-[ :`BUY`|`VIEW`]->(x :`Item` :`tenant`)
+        # WHERE x <> i
+        # RETURN x.id AS item, COUNT(x) AS n
+        # ORDER BY n DESC
+        # LIMIT 10
+
         template = """
             MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|`VIEW`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{itemId}}}})
             WITH s, i
@@ -169,7 +212,6 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
     return neo4j.Query(''.join(statements), params)
 
 
-
 class RecommendationProvider(object):
 
     @classmethod
@@ -179,7 +221,7 @@ class RecommendationProvider(object):
 
         output = neo4j.run_query(query)
 
-        if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo"]:
+        if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo", "oiv", "oip", "anon-oiv", "anon-oip"]:
 
             items = []
             count = sum([record[1] for record in output])
@@ -190,18 +232,6 @@ class RecommendationProvider(object):
                 items.append(item)
 
             result = items
-
-        elif rtype in ["oiv", "oip", "anon-oiv", "anon-oip"]:
-
-            collections = []
-            for record in output:
-                collections.append(record[0]["data"])
-
-            limit = limit if limit else 10
-
-            most_popular_items = _rank_most_popular_items(collections, key="id", n=limit)
-
-            result = most_popular_items
 
         else:
 
@@ -226,7 +256,7 @@ class BatchRecommendationProvider(object):
 
         for output in bresults:
 
-            if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo"]:
+            if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo", "oiv", "oip", "anon-oiv", "anon-oip"]:
 
                 items = []
                 count = sum([record[1] for record in output])
@@ -237,18 +267,6 @@ class BatchRecommendationProvider(object):
                     items.append(item)
 
                 results.append(items)
-
-            elif rtype in ["oiv", "oip", "anon-oiv", "anon-oip"]:
-
-                collections = []
-                for record in output:
-                    collections.append(record[0]["data"])
-
-                limit = limit if limit else 10
-
-                most_popular_items = _rank_most_popular_items(collections, key="id", n=limit)
-
-                results.append(most_popular_items)
 
             else:
 
