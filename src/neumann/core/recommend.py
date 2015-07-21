@@ -41,15 +41,15 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
     if rtype in ["oivt", "oipt"]:
 
-        action = lambda x: {
-            "oivt": constants.REL_ACTION_TYPE_VIEW,
-            "oipt": constants.REL_ACTION_TYPE_BUY,
-        }[x]
+        # action = lambda x: {
+        #     "oivt": constants.REL_ACTION_TYPE_VIEW,
+        #     "oipt": constants.REL_ACTION_TYPE_BUY,
+        # }[x]
 
         template = """
-            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`{REL}`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{item_id}}}})
+            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|:`VIEW`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{item_id}}}})
             WITH s, i
-            MATCH (s)-[ :`{REL}`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
+            MATCH (s)-[ :`:`BUY`|:`VIEW`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
             WHERE x <> i
             RETURN x.id AS item, COUNT(x) AS n
             ORDER BY n DESC
@@ -59,7 +59,7 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         statements.append(
             template.format(
                 TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
-                ITEM_LABEL=constants.LABEL_ITEM, REL=action(rtype)
+                ITEM_LABEL=constants.LABEL_ITEM
             )
         )
 
@@ -77,14 +77,14 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         # ORDER BY n DESC
         # LIMIT 10
 
-        action = lambda x: {
-            "oiv": constants.REL_ACTION_TYPE_VIEW,
-            "oip": constants.REL_ACTION_TYPE_BUY
-        }[x]
+        # action = lambda x: {
+        #     "oiv": constants.REL_ACTION_TYPE_VIEW,
+        #     "oip": constants.REL_ACTION_TYPE_BUY
+        # }[x]
 
         template = """
-            MATCH (i :`{TENANT}` :`{ITEM_LABEL}` {{id:{{item_id}}}})<-[r1 :`{REL}`]-(s1 :`{TENANT}` :`{SESSION_LABEL}`)\
-            -[:`BY`]->(u :`{TENANT}` :`{USER_LABEL}`)<-[:`BY`]-(s2 :`{TENANT}` :`{SESSION_LABEL}`)-[:`{REL}`]\
+            MATCH (i :`{TENANT}` :`{ITEM_LABEL}` {{id:{{item_id}}}})<-[r1 :`BUY`|:`VIEW`]-(s1 :`{TENANT}` :`{SESSION_LABEL}`)\
+            -[:`BY`]->(u :`{TENANT}` :`{USER_LABEL}`)<-[:`BY`]-(s2 :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|:`VIEW`]\
             ->(x :`{TENANT}` :`{ITEM_LABEL}`)
             WHERE i <> x AND s1 <> s2
             WITH x
@@ -97,8 +97,7 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         statements.append(
             template.format(
                 TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
-                ITEM_LABEL=constants.LABEL_ITEM, USER_LABEL=constants.LABEL_USER,
-                REL=action(rtype)
+                ITEM_LABEL=constants.LABEL_ITEM, USER_LABEL=constants.LABEL_USER
             )
         )
 
@@ -117,14 +116,14 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         # ORDER BY n DESC
         # LIMIT 10
 
-        action = lambda x: {
-            "anon-oiv": constants.REL_ACTION_TYPE_VIEW,
-            "anon-oip": constants.REL_ACTION_TYPE_BUY
-        }[x]
+        # action = lambda x: {
+        #     "anon-oiv": constants.REL_ACTION_TYPE_VIEW,
+        #     "anon-oip": constants.REL_ACTION_TYPE_BUY
+        # }[x]
 
         template = """
-            MATCH (i :`{TENANT}` :`{ITEM_LABEL}` {{id:{{item_id}}}})<-[r1 :`{REL}`]-(s1 :`{TENANT}` :`{SESSION_LABEL}`)\
-            -[:`FROM`]->(a :`{TENANT}` :`{AGENT_LABEL}`)<-[:`FROM`]-(s2 :`{TENANT}` :`{SESSION_LABEL}`)-[:`{REL}`]\
+            MATCH (i :`{TENANT}` :`{ITEM_LABEL}` {{id:{{item_id}}}})<-[r1 :`BUY`|:`VIEW`]-(s1 :`{TENANT}` :`{SESSION_LABEL}`)\
+            -[:`FROM`]->(a :`{TENANT}` :`{AGENT_LABEL}`)<-[:`FROM`]-(s2 :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|:`VIEW`]\
             ->(x :`{TENANT}` :`{ITEM_LABEL}`)
             WHERE i <> x AND s1 <> s2
             WITH x
@@ -137,8 +136,7 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         statements.append(
             template.format(
                 TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
-                ITEM_LABEL=constants.LABEL_ITEM, AGENT_LABEL=constants.LABEL_AGENT,
-                REL=action(rtype)
+                ITEM_LABEL=constants.LABEL_ITEM, AGENT_LABEL=constants.LABEL_AGENT
             )
         )
 
@@ -157,9 +155,9 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         # LIMIT 10
 
         template = """
-            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|`VIEW`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{itemId}}}})
+            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`BUY`|:`VIEW`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id : {{itemId}}}})
             WITH s, i
-            MATCH (s)-[ :`BUY`|`VIEW`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
+            MATCH (s)-[ :`BUY`|:`VIEW`]->(x :`{ITEM_LABEL}` :`{TENANT}`)
             WHERE x <> i
             RETURN x.id AS item, COUNT(x) AS n
             ORDER BY n DESC

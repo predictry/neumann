@@ -90,6 +90,7 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
         shutil.move(tempf, filename)
 
+
 class TaskComputeRecommendations(luigi.Task):
 
     date = luigi.DateParameter()
@@ -158,8 +159,6 @@ class TaskComputeRecommendations(luigi.Task):
                     candidates.append(item_id)
 
                     if counter % batch_size == 0:
-
-                        # try:
 
                         results = BatchRecommendationProvider.compute(self.tenant, 'duo', candidates)
 
