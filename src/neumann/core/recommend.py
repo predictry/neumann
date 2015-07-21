@@ -146,36 +146,6 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         params.append(neo4j.Parameter("volume", 300))
         params.append(neo4j.Parameter("limit", 10))
 
-    elif rtype in ["trv", "trp", "trac"]:
-
-        # TODO: deprecate
-
-        action = lambda x: {
-            "trv": constants.REL_ACTION_TYPE_VIEW,
-            "trp": constants.REL_ACTION_TYPE_BUY,
-            "trac": constants.REL_ACTION_TYPE_ADD_TO_CART,
-        }[x]
-
-        template = """
-            MATCH (s :`{TENANT}` :`{SESSION_LABEL}`)-[:`{REL}`]->(i :`{TENANT}` :`{ITEM_LABEL}` {{id: {{item_id}}}})
-            WITH s, i
-            MATCH (s)-[r :`{REL}`]->(x :`{TENANT}` :`{ITEM_LABEL}`)
-            WHERE i <> x
-            WITH r, x
-            ORDER BY r.datetime
-            LIMIT {{n_actions}}
-            RETURN x.id AS item, COUNT(x) AS n
-            ORDER BY n DESC
-            LIMIT {{limit}}
-            """
-
-        statements.append(template.format(TENANT=tenant, SESSION_LABEL=constants.LABEL_SESSION,
-                                 ITEM_LABEL=constants.LABEL_ITEM, REL=action(rtype)))
-
-        params.append(neo4j.Parameter("n_actions", 1000))
-        params.append(neo4j.Parameter("item_id", item_id))
-        params.append(neo4j.Parameter("limit", 10))
-
     elif rtype in ["duo"]:
 
         # MATCH (s :`tenant` :`Session`)-[:`BUY`|`VIEW`]->(i :`tenant` :`Item` {id : "tenantId"})
@@ -221,7 +191,7 @@ class RecommendationProvider(object):
 
         output = neo4j.run_query(query)
 
-        if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo", "oiv", "oip", "anon-oiv", "anon-oip"]:
+        if rtype in ["oivt", "oipt", "duo", "oiv", "oip", "anon-oiv", "anon-oip"]:
 
             items = []
             count = sum([record[1] for record in output])
@@ -256,7 +226,7 @@ class BatchRecommendationProvider(object):
 
         for output in bresults:
 
-            if rtype in ["oivt", "oipt", "trv", "trp", "trac", "duo", "oiv", "oip", "anon-oiv", "anon-oip"]:
+            if rtype in ["oivt", "oipt", "duo", "oiv", "oip", "anon-oiv", "anon-oip"]:
 
                 items = []
                 count = sum([record[1] for record in output])
