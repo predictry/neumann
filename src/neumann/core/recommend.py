@@ -10,8 +10,8 @@ from neumann.core.db import neo4j
 
 def _rank_most_popular_items(data, key, collection=False, n=5):
 
-    all_items = list()
-    item_store = dict()
+    all_items = []
+    item_store = {}
 
     for item in data:
         if collection:
@@ -36,10 +36,12 @@ def _rank_most_popular_items(data, key, collection=False, n=5):
 
 def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
 
-    statements = list()
-    params = list()
+    statements = []
+    params = []
 
     if rtype in ["oivt", "oipt"]:
+
+        # TODO: Replace User with Agent?
 
         # action = lambda x: {
         #     "oivt": constants.REL_ACTION_TYPE_VIEW,
@@ -67,6 +69,8 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         params.append(neo4j.Parameter("limit", limit if limit else 10))
 
     elif rtype in ["oiv", "oip"]:
+
+        # TODO: Replace User with Agent?
 
         # MATCH (i :`tenant` :`Item` {id: "itemId"})<-[r1 :`BUY`|:`VIEW`]-(s1 :`tenant` :`Session`)-[:`BY`]->
         # (u :`tenant` :`User`)<-[:`BY`]-(s2 :`tenant` :`Session`)-[:`BUY`|:`VIEW`]->(x :`tenant` :`Item`)
@@ -106,6 +110,8 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         params.append(neo4j.Parameter("limit", 10))
 
     elif rtype in ["anon-oiv", "anon-oip"]:
+
+        # TODO: Replace User with Agent?
 
         # MATCH (i :`tenant` :`Item` {id: "itemId"})<-[r1 :`BUY`|:`VIEW`]-(s1 :`tenant` :`Session`)-[:`FROM`]->
         # (u :`tenant` :`Agent`)<-[:`FROM`]-(s2 :`tenant` :`Session`)-[:`BUY`|:`VIEW`]->(x :`tenant` :`Item`)

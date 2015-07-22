@@ -274,7 +274,7 @@ class TaskStoreRecommendationResults(luigi.Task):
 
                     if len(items) == 1:
                         if not items[0]:
-                            items = list()
+                            items = []
 
                     data = dict(items=items, algo=recommendation_types)
 
@@ -326,7 +326,7 @@ class TaskRunRecommendationWorkflow(luigi.Task):
         n = Neo4jRepository.get_item_count_for_tenant(tenant=self.tenant)
 
         job_size = 50000
-        jobs = list()
+        jobs = []
 
         c = 1
         for i in range(0, n, job_size):
@@ -451,7 +451,7 @@ class TaskRunItemSyncWorkflow(luigi.Task):
         n = Neo4jRepository.get_item_count_for_tenant(tenant=self.tenant)
 
         job_size = 1000
-        jobs = list()
+        jobs = []
 
         c = 1
         for i in range(0, n, job_size):
