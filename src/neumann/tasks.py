@@ -150,7 +150,7 @@ def compute_recommendation_task(date, tenant):
 
         filepath = os.path.abspath(recommendwk.__file__)
         classname = recommendwk.TaskRunRecommendationWorkflow.__name__
-        workers = taskconfig('import-record', 'workers', 4)
+        workers = taskconfig('recommend', 'workers', 4)
 
         statements = [sys.executable, filepath, classname,
                       '--date', str(date),
