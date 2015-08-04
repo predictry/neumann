@@ -732,7 +732,7 @@ class TaskRunTrimDataWorkflow(luigi.Task):
     def output(self):
 
         file_name = "{0}_{1}_{2}_{3}_{4}.{5}".format(
-            self.__class__.__name__, self.date.__str__(), self.tenant, self.starting_date, self.period, 'JSON'
+            self.__class__.__name__, self.date.__str__(), self.tenant, self.starting_date, self.period, 'csv'
         )
 
         file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
@@ -740,16 +740,6 @@ class TaskRunTrimDataWorkflow(luigi.Task):
         return luigi.LocalTarget(file_path)
 
     def run(self):
-
-        print(
-            '{0}[date={1}, tenant={2}, startingDate={3}, period={4}]'.format(
-                self.__class__.__name__,
-                self.date,
-                self.tenant,
-                self.starting_date,
-                self.period
-            )
-        )
 
         cut_off_date = self.starting_date - datetime.timedelta(days=self.period)
 
@@ -765,3 +755,6 @@ class TaskRunTrimDataWorkflow(luigi.Task):
 
         while Neo4jRepository.delete_events_prior_to(self.tenant, cut_off_date.isoformat(), 1000):
             pass
+
+        with self.output().open('w') as fp:
+            fp.write('Ok')
