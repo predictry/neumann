@@ -394,3 +394,94 @@ def run_batch_query(queries, commit=True, timeout=300):
         collection.append(records)
 
     return collection
+
+
+class Transaction(object):
+
+    def __init__(self):
+        self.graph = get_connection()
+        self.tx = self.graph.transaction(for_query=True)
+
+    def __enter__(self):
+        self._instance = self
+        return self._instance
+
+    def __exit__(self, type, value, traceback):
+        # TODO: check if tx can still be committed/hasn't been rolled back
+        self._instance.commit()
+
+    def execute(self, query):
+
+        try:
+
+            q = query.statement
+            p = {param.key: param.value for param in query.params}
+
+            self.tx.append(q, p)
+            result = self.tx.execute()[0]
+
+        except neo4jrestclient.exceptions.TransactionException:
+            self.tx.rollback()
+            raise
+        else:
+            return result
+
+    def commit(self):
+        self.tx.commit()
+
+    def rollback(self):
+        self.tx.rollback()
+
+
+class BatchTransaction(object):
+
+    def __init__(self):
+        self.graph = get_connection()
+        self.tx = self.graph.transaction(for_query=True)
+
+    def __enter__(self):
+        self._instance = self
+        return self._instance
+
+    def __exit__(self, type, value, traceback):
+        # TODO: check if tx can still be committed/hasn't been rolled back
+        self._instance.commit()
+
+    def append(self, query):
+
+        assert isinstance(query, Query)
+
+        q = query.statement
+        p = {param.key: param.value for param in query.params}
+
+        self.tx.append(q, p)
+
+    def execute(self):
+
+        try:
+
+            results = self.tx.execute()
+
+        except neo4jrestclient.exceptions.TransactionException:
+            self.tx.rollback()
+            raise
+        else:
+
+            collection = []
+            for result in results:
+
+                records = []
+
+                for record in result:
+
+                    records.append(record)
+
+                collection.append(records)
+
+            return collection
+
+    def commit(self):
+        self.tx.commit()
+
+    def rollback(self):
+        self.tx.rollback()
