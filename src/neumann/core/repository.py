@@ -12,15 +12,6 @@ from neumann.utils import config
 
 class Neo4jRepository(object):
 
-    # MATCH (s :`Session` :`bukalapak`)
-    # WHERE s.timestamp < "2015-08-03T00:47:53+00:00"
-    # WITH s
-    # LIMIT 5
-    # OPTIONAL MATCH (s)-[r]-(x)
-    # WITH s, r
-    # DELETE r, s
-    # RETURN COUNT(s)
-
     @classmethod
     def delete_events_prior_to(cls, tenant, timestamp, limit=1000):
         # delete any actions tied to the session... (relationships)
