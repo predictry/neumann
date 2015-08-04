@@ -136,7 +136,7 @@ if not app.debug:
     from neumann.core.db.neo4j import Query
     import os.path
 
-    index_file = os.path.join(PROJECT_BASE, 'doc', 'index')
+    index_file = os.path.join(PROJECT_BASE, 'resources', 'db', 'schema.index')
 
     if os.path.exists(index_file):
         indexes = []

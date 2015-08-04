@@ -11,7 +11,7 @@ In production, the server should be run by uwsgi, via supervisor. In development
 
 Before starting up, the server.py script does a few things to setup the environment. 
 First, it configures logging, based on the logging.json configuration file located at the base of the project. 
-Second, the scripts sets up indexing in the configured Neo4j database, by running Cypher queries on the [index](doc/index)
+Second, the scripts sets up indexing in the configured Neo4j database, by running Cypher queries on the [index](resources/db/schema.index)
 file, if it is present.
 
 
