@@ -60,6 +60,46 @@ def recommend(args):
     return Response(json.dumps(task, cls=io.DateTimeEncoder), status=200, mimetype="application/json")
 
 
+@app.route("/services/trim-data", methods=["POST"])
+@use_args({
+    'tenant': Arg(str, required=True, location='json'),
+    'date': Arg(str, required=True, location='json'),
+    'startingDate': Arg(str, required=True, location='json'),
+    'period': Arg(int, required=True, validate=lambda x: x >= 1, error='Invalid period', location='json')
+})
+def trimdata(args):
+
+    try:
+
+        date = io.parse_date(args['date'])
+    except ValueError as exc:
+        message = 'Invalid date: {0}. Format should be `YYYY-mm-dd`'.format(args['date'])
+        Logger.error(exc)
+        return jsonify(dict(message=message)), 400
+
+    try:
+        starting_date = io.parse_date(args['startingDate'])
+    except ValueError as exc:
+        message = 'Invalid date: {0}. Format should be `YYYY-mm-dd`'.format(args['date'])
+        Logger.error(exc)
+        return jsonify(dict(message=message)), 400
+
+    import datetime
+
+    tenant = args['tenant']
+    period = args['period']
+    task = services.DataTrimmingService.trim(
+        date=str(date.date()),
+        tenant=tenant,
+        starting_date=starting_date.date(),
+        period=period
+    )
+
+    diff=(starting_date - datetime.timedelta(days=period)).isoformat()
+    pk = dict(diff=diff)
+    return Response(json.dumps(pk, cls=io.DateTimeEncoder), status=200, mimetype="application/json")
+
+
 @app.errorhandler(400)
 def handle_bad_request(err):
     data = getattr(err, 'data', None)

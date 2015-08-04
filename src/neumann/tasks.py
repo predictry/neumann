@@ -5,8 +5,8 @@ import configparser
 
 from redis import Redis
 from rq.decorators import job
-from neumann.workflows import harvestwk
-from neumann.workflows import recommendwk
+
+from neumann import workflows
 from neumann.utils.logger import Logger
 from neumann.core import errors
 from neumann.utils import config
@@ -19,11 +19,13 @@ TASK_STATUS_RUNNING = 'RUNNING'
 TASK_STATUS_STOPPED = 'STOPPED'
 
 TASK_TYPE_COMPUTEREC = 'recommend'
-TASK_TYPE_RECORDIMPORT = 'record-import'
+TASK_TYPE_RECORDIMPORT = 'import-record'
+TASK_TYPE_TRIMDATA = 'trim-data'
 
 TASK_TYPES = (
     TASK_TYPE_RECORDIMPORT,
-    TASK_TYPE_COMPUTEREC
+    TASK_TYPE_COMPUTEREC,
+    TASK_TYPE_TRIMDATA
 )
 
 TASK_CONFIG = os.path.join(config.PROJECT_BASE, 'tasks.ini')
@@ -58,7 +60,7 @@ def taskconfig(task, option=None, fallback=None, type=None):
                 return data
 
 
-class RecordImportTask(ITask):
+class ImportRecordTask(ITask):
 
     def __init__(self, timestamp, tenant):
         self.timestamp = timestamp
@@ -72,16 +74,16 @@ class RecordImportTask(ITask):
 
     def run(self):
 
-        record_import_task.delay(self.timestamp, self.tenant)
+        _import_record_task.delay(self.timestamp, self.tenant)
 
 
 @job('low', connection=_redis_conn, timeout=int(taskconfig('import-record', 'timeout', 1800)))
-def record_import_task(timestamp, tenant):
+def _import_record_task(timestamp, tenant):
 
     def execute(timestamp, tenant):
 
-        filepath = os.path.abspath(harvestwk.__file__)
-        classname = harvestwk.TaskImportRecordIntoNeo4j.__name__
+        filepath = os.path.abspath(workflows.__file__)
+        classname = workflows.TaskImportRecordIntoNeo4j.__name__
         workers = taskconfig('import-record', 'workers', 1)
 
         statements = [sys.executable, filepath, classname,
@@ -134,7 +136,7 @@ class ComputeRecommendationTask(ITask):
         self.tenant = tenant
 
     def run(self):
-        compute_recommendation_task.delay(self.date, self.tenant)
+        _compute_recommendation_task.delay(self.date, self.tenant)
 
     def __str__(self):
 
@@ -144,12 +146,12 @@ class ComputeRecommendationTask(ITask):
 
 
 @job('high', connection=_redis_conn, timeout=int(taskconfig('recommend', 'timeout', 3600*2)))
-def compute_recommendation_task(date, tenant):
+def _compute_recommendation_task(date, tenant):
     
     def execute(date, tenant):
 
-        filepath = os.path.abspath(recommendwk.__file__)
-        classname = recommendwk.TaskRunRecommendationWorkflow.__name__
+        filepath = os.path.abspath(workflows.__file__)
+        classname = workflows.TaskRunRecommendationWorkflow.__name__
         workers = taskconfig('recommend', 'workers', 4)
 
         statements = [sys.executable, filepath, classname,
@@ -192,3 +194,75 @@ def compute_recommendation_task(date, tenant):
                 )
     
     return execute(date=date, tenant=tenant)
+
+
+class TrimDataTask(ITask):
+
+    def __init__(self, date, tenant, starting_date, period):
+        self.date = date
+        self.tenant = tenant
+        self.starting_date = starting_date
+        self.period = period
+
+    def run(self):
+
+        _trim_data_task.delay(self.date, self.tenant, self.starting_date, self.period)
+
+    def __str__(self):
+
+        return '{0}[date={1}, tenant={2}, period={3}]'.format(
+            self.__class__.__name__, self.date, self.tenant, self.period
+        )
+
+
+@job('high', connection=_redis_conn, timeout=3600)
+def _trim_data_task(date, tenant, starting_date, period):
+
+    def execute():
+
+        filepath = os.path.abspath(workflows.__file__)
+        classname = workflows.TaskRunTrimDataWorkflow.__name__
+        workers = taskconfig('trim-data', 'workers', 1)
+
+        statements = [sys.executable, filepath, classname,
+                      '--date', str(date),
+                      '--tenant', tenant,
+                      '--starting_date', str(starting_date),
+                      '--period', str(period),
+                      '--workers', str(workers)]
+
+        Logger.info(statements)
+
+        p = subprocess.Popen(statements)
+
+        stdout, stderr = p.communicate()
+
+        if stderr:
+
+            Logger.error(stderr)
+
+            message = '{0} ({1}, {2}) failed'.format(
+                classname, str(date), tenant
+            )
+
+            raise errors.ProcessFailureError(
+                message
+            )
+
+        else:
+
+            Logger.info(stdout)
+
+            if p.returncode == 0:
+                return True
+            else:
+
+                message = '{0} ({1}, {2}) failed'.format(
+                    classname, str(date), tenant
+                )
+
+                raise errors.ProcessFailureError(
+                    message
+                )
+
+    return execute()
