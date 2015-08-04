@@ -92,7 +92,9 @@ def _import_record_task(timestamp, tenant):
                       '--tenant', tenant,
                       '--workers', str(workers)]
 
-        Logger.info(statements)
+        Logger.info(
+            '\t'.join(statements)
+        )
 
         p = subprocess.Popen(statements)
 
@@ -159,7 +161,9 @@ def _compute_recommendation_task(date, tenant):
                       '--tenant', tenant,
                       '--workers', str(workers)]
 
-        Logger.info(statements)
+        Logger.info(
+            '\t'.join(statements)
+        )
 
         p = subprocess.Popen(statements)
 
@@ -210,8 +214,9 @@ class TrimDataTask(ITask):
 
     def __str__(self):
 
-        return '{0}[date={1}, tenant={2}, period={3}]'.format(
-            self.__class__.__name__, self.date, self.tenant, self.period
+        return '{0}[date={1}, tenant={2}, startingDate={3}, period={4}]'.format(
+            self.__class__.__name__, self.date, self.tenant,
+            self.starting_date, self.period
         )
 
 
@@ -227,11 +232,13 @@ def _trim_data_task(date, tenant, starting_date, period):
         statements = [sys.executable, filepath, classname,
                       '--date', str(date),
                       '--tenant', tenant,
-                      '--starting_date', str(starting_date),
+                      '--starting-date', str(starting_date),
                       '--period', str(period),
                       '--workers', str(workers)]
 
-        Logger.info(statements)
+        Logger.info(
+            '\t'.join(statements)
+        )
 
         p = subprocess.Popen(statements)
 

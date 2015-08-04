@@ -2,7 +2,6 @@ from neumann import tasks
 from neumann.tasks import ImportRecordTask
 from neumann.tasks import ComputeRecommendationTask
 from neumann.tasks import TrimDataTask
-from neumann.utils import io
 from neumann.utils.logger import Logger
 
 

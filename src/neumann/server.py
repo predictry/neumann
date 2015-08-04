@@ -95,9 +95,7 @@ def trimdata(args):
         period=period
     )
 
-    diff=(starting_date - datetime.timedelta(days=period)).isoformat()
-    pk = dict(diff=diff)
-    return Response(json.dumps(pk, cls=io.DateTimeEncoder), status=200, mimetype="application/json")
+    return Response(json.dumps(task, cls=io.DateTimeEncoder), status=200, mimetype="application/json")
 
 
 @app.errorhandler(400)

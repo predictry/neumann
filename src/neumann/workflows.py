@@ -732,7 +732,7 @@ class TaskRunTrimDataWorkflow(luigi.Task):
     def output(self):
 
         file_name = "{0}_{1}_{2}_{3}_{4}.{5}".format(
-            self.__class__.__name__, self.date.__str__(), self.tenant, self.starting_date, self.period, 'csv'
+            self.__class__.__name__, self.date.__str__(), self.tenant, self.starting_date.__str__(), self.period, 'csv'
         )
 
         file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
@@ -741,12 +741,12 @@ class TaskRunTrimDataWorkflow(luigi.Task):
 
     def run(self):
 
-        cut_off_date = self.starting_date - datetime.timedelta(days=self.period)
+        tempdate = self.starting_date - datetime.timedelta(days=self.period)
 
-        datetime.datetime(
-            year=cut_off_date.date().year,
-            month=cut_off_date.date().month,
-            day=cut_off_date.date().day,
+        cut_off_date = datetime.datetime(
+            year=tempdate.year,
+            month=tempdate.month,
+            day=tempdate.day,
             hour=0,
             minute=0,
             second=0,
@@ -756,5 +756,12 @@ class TaskRunTrimDataWorkflow(luigi.Task):
         while Neo4jRepository.delete_events_prior_to(self.tenant, cut_off_date.isoformat(), 1000):
             pass
 
+        if not os.path.exists(os.path.dirname(self.output().path)):
+            os.makedirs(os.path.dirname(self.output().path))
+
         with self.output().open('w') as fp:
             fp.write('Ok')
+
+
+if __name__ == '__main__':
+    luigi.run()
