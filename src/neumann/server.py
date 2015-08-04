@@ -84,10 +84,9 @@ def trimdata(args):
         Logger.error(exc)
         return jsonify(dict(message=message)), 400
 
-    import datetime
-
     tenant = args['tenant']
     period = args['period']
+
     task = services.DataTrimmingService.trim(
         date=str(date.date()),
         tenant=tenant,
@@ -130,6 +129,31 @@ if not app.debug:
     logging = config.get("logging")
 
     Logger.setup_logging(logging["logconfig"])
+
+    # setup database indexing
+    from neumann.utils.config import PROJECT_BASE
+    from neumann.core.db.neo4j import BatchTransaction
+    from neumann.core.db.neo4j import Query
+    import os.path
+
+    index_file = os.path.join(PROJECT_BASE, 'doc', 'index')
+
+    if os.path.exists(index_file):
+        indexes = []
+
+        with open(index_file, 'r') as fp:
+
+            for line in fp:
+
+                if line:
+                    indexes.append(line)
+
+        with BatchTransaction() as transaction:
+
+            for index in indexes:
+                transaction.append(Query(statement=index, params=[]))
+
+            transaction.execute()
 
 
 if __name__ == "__main__":
