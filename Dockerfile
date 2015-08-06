@@ -24,8 +24,10 @@ RUN apt-get install libsqlite3-dev -y
 RUN apt-get install python-setuptools -y
 RUN apt-get install python-dev -y
 RUN apt-get install python-pip=1.5.4-1 -y
-RUN sudo pip install virtualenv
-RUN sudo apt-get install tcl8.5 -y
+RUN pip install virtualenv
+RUN apt-get install tcl8.5 -y
+RUN apt-get install git -y
+RUN apt-get install redis-server -y
 
 # Python 3.4.2
 WORKDIR /tmp/
@@ -37,9 +39,6 @@ RUN ./configure --with-ensurepip=install
 RUN make -j `nproc`
 RUN make install
 RUN rm -rf /tmp/Python-3.4.2*
-
-# Redis
-RUN sudo apt-get install -y redis-server
 
 # Add user
 RUN adduser --disabled-password --gecos "" dispatch
