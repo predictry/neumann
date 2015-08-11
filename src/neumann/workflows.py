@@ -515,7 +515,7 @@ class TaskStoreRecommendationResults(luigi.Task):
 
                     if len(items) == 1:
                         if not items[0]:
-                            items = []
+                            continue
 
                     data = dict(items=items, algo=recommendation_types)
 

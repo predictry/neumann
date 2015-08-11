@@ -397,7 +397,7 @@ def run_batch_query(queries, commit=True, timeout=300):
 
 
 class Transaction(object):
-
+    # TODO: use neo4jrestclient CypherQuery class
     def __init__(self):
         self.graph = get_connection()
         self.tx = self.graph.transaction(for_query=True)
@@ -407,7 +407,6 @@ class Transaction(object):
         return self._instance
 
     def __exit__(self, type, value, traceback):
-        # TODO: check if tx can still be committed/hasn't been rolled back
         self._instance.commit()
 
     def execute(self, query):
@@ -434,7 +433,7 @@ class Transaction(object):
 
 
 class BatchTransaction(object):
-
+    # TODO: use neo4jrestclient CypherQuery class
     def __init__(self):
         self.graph = get_connection()
         self.tx = self.graph.transaction(for_query=True)
@@ -444,7 +443,7 @@ class BatchTransaction(object):
         return self._instance
 
     def __exit__(self, type, value, traceback):
-        # TODO: check if tx can still be committed/hasn't been rolled back
+
         self._instance.commit()
 
     def append(self, query):
