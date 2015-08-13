@@ -71,7 +71,7 @@ ADD boto.cfg ${APPDIR}/boto.cfg
 ENV BOTO_CONFIG ${APPDIR}/boto.cfg
 
 # Luigi config
-ADD client.cfg /etc/luigi/luigi.cfg
+ADD client.cfg /etc/luigi/client.cfg
 
 # Tasks config
 ADD tasks.ini ${APPDIR}/
