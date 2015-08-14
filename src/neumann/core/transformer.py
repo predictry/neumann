@@ -1,9 +1,25 @@
 from neumann.core import model
 from neumann.core import constants
 from neumann.core.db import neo4j
+from neumann.utils import io
 
 
 class CypherTransformer(object):
+
+    @classmethod
+    def is_valid_data_type(cls, val):
+
+        if type(val) in [list, set]:
+
+            for elem in val:
+                if not io.is_basic_data_type(elem):
+                    return False
+
+            return True
+
+        else:
+
+            return io.is_basic_data_type(val)
 
     @classmethod
     def session(cls, entity):
@@ -65,12 +81,14 @@ class CypherTransformer(object):
 
         for k, v in entity.fields.items():
 
-            params.append(neo4j.Parameter(k, v))
-            statements.append(
-                '\nSET item.{0} = {{ {0} }}'.format(
-                    k
+            if cls.is_valid_data_type(v):
+
+                params.append(neo4j.Parameter(k, v))
+                statements.append(
+                    '\nSET item.{0} = {{ {0} }}'.format(
+                        k
+                    )
                 )
-            )
 
         queries.append(neo4j.Query(statement=''.join(statements), params=params))
 
@@ -94,12 +112,14 @@ class CypherTransformer(object):
 
         for k, v in entity.fields.items():
 
-            params.append(neo4j.Parameter(k, v))
-            statements.append(
-                '\nSET user.{0} = {{ {0} }}'.format(
-                    k
+            if cls.is_valid_data_type(v):
+
+                params.append(neo4j.Parameter(k, v))
+                statements.append(
+                    '\nSET user.{0} = {{ {0} }}'.format(
+                        k
+                    )
                 )
-            )
 
         queries.append(neo4j.Query(statement=''.join(statements), params=params))
 
@@ -184,15 +204,17 @@ class CypherTransformer(object):
 
             for k, v in entity.fields.items():
 
-                statements.append(
-                    '\nSET r.{0} = {{ {0} }}'.format(
-                        k
-                    )
-                )
+                if cls.is_valid_data_type(v):
 
-                params.append(
-                    neo4j.Parameter(k, v)
-                )
+                    statements.append(
+                        '\nSET r.{0} = {{ {0} }}'.format(
+                            k
+                        )
+                    )
+
+                    params.append(
+                        neo4j.Parameter(k, v)
+                    )
 
             queries.append(neo4j.Query(statement=''.join(statements), params=params))
 
@@ -229,15 +251,17 @@ class CypherTransformer(object):
 
             for k, v in entity.fields.items():
 
-                statements.append(
-                    '\nSET r.{0} = {{ {0} }}'.format(
-                        k
-                    )
-                )
+                if cls.is_valid_data_type(v):
 
-                params.append(
-                    neo4j.Parameter(k, v)
-                )
+                    statements.append(
+                        '\nSET r.{0} = {{ {0} }}'.format(
+                            k
+                        )
+                    )
+
+                    params.append(
+                        neo4j.Parameter(k, v)
+                    )
 
             queries.append(neo4j.Query(statement=''.join(statements), params=params))
 
@@ -274,15 +298,17 @@ class CypherTransformer(object):
 
             for k, v in entity.fields.items():
 
-                statements.append(
-                    '\nSET r.{0} = {{ {0} }}'.format(
-                        k
-                    )
-                )
+                if cls.is_valid_data_type(v):
 
-                params.append(
-                    neo4j.Parameter(k, v)
-                )
+                    statements.append(
+                        '\nSET r.{0} = {{ {0} }}'.format(
+                            k
+                        )
+                    )
+
+                    params.append(
+                        neo4j.Parameter(k, v)
+                    )
 
             queries.append(neo4j.Query(statement=''.join(statements), params=params))
 
@@ -317,15 +343,17 @@ class CypherTransformer(object):
 
             for k, v in entity.fields.items():
 
-                statements.append(
-                    '\nSET r.{0} = {{ {0} }}'.format(
-                        k
-                    )
-                )
+                if cls.is_valid_data_type(v):
 
-                params.append(
-                    neo4j.Parameter(k, v)
-                )
+                    statements.append(
+                        '\nSET r.{0} = {{ {0} }}'.format(
+                            k
+                        )
+                    )
+
+                    params.append(
+                        neo4j.Parameter(k, v)
+                    )
 
             queries.append(neo4j.Query(''.join(statements), params))
 
@@ -359,15 +387,17 @@ class CypherTransformer(object):
 
             for k, v in entity.fields.items():
 
-                statements.append(
-                    '\nSET r.{0} = {{ {0} }}'.format(
-                        k
-                    )
-                )
+                if cls.is_valid_data_type(v):
 
-                params.append(
-                    neo4j.Parameter(k, v)
-                )
+                    statements.append(
+                        '\nSET r.{0} = {{ {0} }}'.format(
+                            k
+                        )
+                    )
+
+                    params.append(
+                        neo4j.Parameter(k, v)
+                    )
 
             queries.append(neo4j.Query(''.join(statements), params))
 

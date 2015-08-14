@@ -50,3 +50,11 @@ class DateTimeEncoder(json.JSONEncoder):
             return o.isoformat()
 
         return json.JSONEncoder.default(self, o)
+
+
+def is_basic_data_type(e):
+
+    if type(e) in [bool, int, float, complex, str, bytes]:
+        return True
+
+    return False
