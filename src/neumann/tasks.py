@@ -77,7 +77,7 @@ class ImportRecordTask(ITask):
         _import_record_task.delay(self.timestamp, self.tenant)
 
 
-@job('low', connection=_redis_conn, timeout=int(taskconfig('import-record', 'timeout', 1800)))
+@job('default', connection=_redis_conn, timeout=int(taskconfig('import-record', 'timeout', 1800)))
 def _import_record_task(timestamp, tenant):
 
     def execute(timestamp, tenant):
@@ -147,7 +147,7 @@ class ComputeRecommendationTask(ITask):
         )
 
 
-@job('high', connection=_redis_conn, timeout=int(taskconfig('recommend', 'timeout', 3600*2)))
+@job('default', connection=_redis_conn, timeout=int(taskconfig('recommend', 'timeout', 3600*2)))
 def _compute_recommendation_task(date, tenant):
     
     def execute(date, tenant):
@@ -220,7 +220,7 @@ class TrimDataTask(ITask):
         )
 
 
-@job('high', connection=_redis_conn, timeout=3600)
+@job('default', connection=_redis_conn, timeout=3600)
 def _trim_data_task(date, tenant, starting_date, period):
 
     def execute():
