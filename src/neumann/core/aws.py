@@ -65,6 +65,29 @@ class S3(object):
             return file_path, 200
 
     @classmethod
+    def delete(cls, s3_key):
+
+        conn = S3Connection()
+
+        bucket = conn.get_bucket(s3_key.split('/')[0])
+
+        key = Key(bucket)
+        key.key = '/'.join(s3_key.split('/')[1:])
+
+        Logger.info("Deleting file from S3: {0}".format(s3_key))
+
+        try:
+            key.delete()
+        except boto.exception.S3ResponseError as exc:
+
+            Logger.error(exc)
+
+            return exc.status
+        else:
+
+            return 200
+
+    @classmethod
     def upload_file(cls, s3_key, file_path):
 
         conn = S3Connection()
