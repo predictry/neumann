@@ -24,7 +24,8 @@ class S3(object):
 
         rs = bucket.list(prefix=pattern)
 
-        return [key.name for key in rs]
+        for key in rs:
+            yield key.name
 
     @classmethod
     def list_buckets(cls):
