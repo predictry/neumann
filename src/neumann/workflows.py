@@ -12,7 +12,6 @@ import luigi
 import requests
 import dateutil.tz
 import dateutil.parser
-
 from neumann import Logger
 from neumann.core import constants, aws, errors, parser
 from neumann.core.db import neo4j
@@ -20,7 +19,6 @@ from neumann.core.recommend import BatchRecommendationProvider
 from neumann.core.repository import Neo4jRepository
 from neumann.core.transformer import CypherTransformer
 from neumann.utils import config, io
-
 
 tempfile.tempdir = os.path.join(config.PROJECT_BASE, 'data/')
 JSON_EXTENSION = "JSON"
@@ -132,6 +130,7 @@ class TaskDownloadRecord(luigi.Task):
                         url=url, date=self.hour, hour=self.hour, tenant=self.tenant
                     )
                 )
+
                 return
 
         elif response.status_code == constants.HTTP_NOT_FOUND:
@@ -331,9 +330,12 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
 
         shutil.move(tempf, filename)
 
+        return
+
 
 class TaskComputeRecommendations(luigi.Task):
 
+    algorithm = luigi.Parameter()
     date = luigi.DateParameter()
     tenant = luigi.Parameter()
     start = luigi.IntParameter()
@@ -347,8 +349,8 @@ class TaskComputeRecommendations(luigi.Task):
 
     def output(self):
 
-        file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant, self.id,
-                                                 CSV_EXTENSION)
+        file_name = "{0}_{1}_{2}_{3}_{4}.{5}".format(self.date.__str__(), self.__class__.__name__, self.tenant,
+                                                     self.algorithm, self.id, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
@@ -356,7 +358,7 @@ class TaskComputeRecommendations(luigi.Task):
 
     def run(self):
 
-        task = "`{0}`::`{1}`::`{2}`".format(self.__class__.__name__, self.tenant, self.id)
+        task = "`{0}`::`{1}`::`{2}`::`{3}`".format(self.__class__.__name__, self.tenant, self.algorithm, self.id)
         batch_size = 50
 
         # TODO: read options from Task configuration
@@ -386,10 +388,26 @@ class TaskComputeRecommendations(luigi.Task):
                 next(reader)
 
                 writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
-                writer.writerow(["tenant", "itemId", "nResults", "recommendationTypes", "recommendedItems"])
+                writer.writerow(["tenant", "itemId", "nResults", "recommendationType", "recommendedItems"])
 
                 counter = 0
                 candidates = []
+
+                def BRP(candidates, writer=writer, tenant=self.tenant, algorithm=self.algorithm):
+
+                    results = BatchRecommendationProvider.compute(tenant, algorithm, candidates)
+
+                    for i in range(0, len(candidates)):
+
+                        # get item ids
+                        items = list(set([item['id'] for item in results[i]]))
+
+                        # register computation
+                        writer.writerow([tenant, candidates[i], len(items),
+                                         algorithm,
+                                         VALUE_SEPARATOR.join(item_id for item_id in items)])
+
+                    del candidates[:]
 
                 for row in reader:
 
@@ -401,35 +419,38 @@ class TaskComputeRecommendations(luigi.Task):
 
                     if counter % batch_size == 0:
 
-                        results = BatchRecommendationProvider.compute(self.tenant, 'duo', candidates)
+                        BRP(candidates)
 
-                        for i in range(0, len(candidates)):
-
-                            # get item ids
-                            items = list(set([item['id'] for item in results[i]]))
-
-                            # register computation
-                            writer.writerow([self.tenant, candidates[i], len(items),
-                                             VALUE_SEPARATOR.join(['duo']),
-                                             VALUE_SEPARATOR.join(item_id for item_id in items)])
-
-                        del candidates[:]
+                        # results = BatchRecommendationProvider.compute(self.tenant, self.algorithm, candidates)
+                        #
+                        # for i in range(0, len(candidates)):
+                        #
+                        #     # get item ids
+                        #     items = list(set([item['id'] for item in results[i]]))
+                        #
+                        #     # register computation
+                        #     writer.writerow([self.tenant, candidates[i], len(items),
+                        #                      self.algorithm,
+                        #                      VALUE_SEPARATOR.join(item_id for item_id in items)])
+                        #
+                        # del candidates[:]
 
                 if candidates:
 
-                    results = BatchRecommendationProvider.compute(self.tenant, 'duo', candidates)
-
-                    for i in range(0, len(candidates)):
-
-                        # get item ids
-                        items = list(set([item['id'] for item in results[i]]))
-
-                        # register computation
-                        writer.writerow([self.tenant, candidates[i], len(items),
-                                         VALUE_SEPARATOR.join(['duo']),
-                                         VALUE_SEPARATOR.join(item_id for item_id in items)])
-
-                    del candidates[:]
+                    BRP(candidates)
+                    # results = BatchRecommendationProvider.compute(self.tenant, self.algorithm, candidates)
+                    #
+                    # for i in range(0, len(candidates)):
+                    #
+                    #     # get item ids
+                    #     items = list(set([item['id'] for item in results[i]]))
+                    #
+                    #     # register computation
+                    #     writer.writerow([self.tenant, candidates[i], len(items),
+                    #                      self.algorithm,
+                    #                      VALUE_SEPARATOR.join(item_id for item_id in items)])
+                    #
+                    # del candidates[:]
 
         except errors.UnknownRecommendationOption:
             raise
@@ -444,6 +465,7 @@ class TaskComputeRecommendations(luigi.Task):
 
 class TaskStoreRecommendationResults(luigi.Task):
 
+    algorithm = luigi.Parameter()
     date = luigi.DateParameter()
     tenant = luigi.Parameter()
     start = luigi.IntParameter()
@@ -452,13 +474,13 @@ class TaskStoreRecommendationResults(luigi.Task):
 
     def requires(self):
 
-        return TaskComputeRecommendations(date=self.date, tenant=self.tenant, id=self.id, start=self.start,
-                                          end=self.end)
+        return TaskComputeRecommendations(date=self.date, tenant=self.tenant, algorithm=self.algorithm,
+                                          id=self.id, start=self.start, end=self.end)
 
     def output(self):
 
-        file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant, self.id,
-                                                 CSV_EXTENSION)
+        file_name = "{0}_{1}_{2}_{3}_{4}.{5}".format(self.date.__str__(), self.__class__.__name__, self.tenant,
+                                                     self.algorithm, self.id, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
@@ -466,10 +488,10 @@ class TaskStoreRecommendationResults(luigi.Task):
 
     def run(self):
 
-        task = "`{0}`::`{1}`::`{2}`".format(self.__class__.__name__, self.tenant, self.id)
+        task = "`{0}`::`{1}`::`{2}`::`{3}`".format(self.__class__.__name__, self.tenant, self.algorithm, self.id)
 
         data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__, self.tenant,
-                                str(self.id))
+                                self.algorithm, str(self.id))
 
         input_filename = self.input().path
         output_filename = self.output().path
@@ -483,7 +505,7 @@ class TaskStoreRecommendationResults(luigi.Task):
         # generate files
         s3 = config.get("s3")
         s3bucket = s3["bucket"]
-        s3path = os.path.join(s3["folder"], self.tenant, "recommendations")
+        s3path = os.path.join(s3["folder"], self.tenant, "recommendations", self.algorithm)
 
         if not os.path.exists(os.path.dirname(data_dir)):
             os.makedirs(os.path.dirname(data_dir))
@@ -554,11 +576,14 @@ class TaskStoreRecommendationResults(luigi.Task):
 
                 writer.writerow([self.tenant, item_id, filename, file_path])
 
+        # TODO: delete the folder used to store temp files
+
         return
 
 
 class TaskRunRecommendationWorkflow(luigi.Task):
 
+    algorithm = luigi.Parameter()
     date = luigi.DateParameter()
     tenant = luigi.Parameter()
 
@@ -575,12 +600,14 @@ class TaskRunRecommendationWorkflow(luigi.Task):
             jobs.append((c, i, limit - 1 if limit < n else n))
             c += 1
 
-        return [TaskStoreRecommendationResults(date=self.date, tenant=self.tenant, id=r[0], start=r[1], end=r[2])
+        return [TaskStoreRecommendationResults(date=self.date, tenant=self.tenant, algorithm=self.algorithm, id=r[0],
+                                               start=r[1], end=r[2])
                 for r in jobs]
 
     def output(self):
 
-        file_name = "{0}_{1}_{2}.{3}".format(self.date.__str__(), self.__class__.__name__, self.tenant, CSV_EXTENSION)
+        file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant,
+                                                 self.algorithm, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
