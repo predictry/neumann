@@ -17,21 +17,22 @@ class RecordImportService(object):
 
         Logger.info('Queued {0}'.format(job))
 
-        return dict(task=tasks.TASK_TYPE_RECORDIMPORT, date=str(timestamp.date()), hour=timestamp.hour, tenant=tenant)
+        return dict(task=tasks.TASK_TYPE_RECORDIMPORT,
+                    parameters=dict(date=str(timestamp.date()), hour=timestamp.hour, tenant=tenant))
 
 
 class RecommendService(object):
 
     @classmethod
-    def compute(cls, date, tenant):
+    def compute(cls, date, tenant, algorithm):
 
-        job = ComputeRecommendationTask(date=date, tenant=tenant)
+        job = ComputeRecommendationTask(date=date, tenant=tenant, algorithm=algorithm)
 
         job.run()
 
         Logger.info('Queued {0}'.format(job))
 
-        return dict(task=tasks.TASK_TYPE_COMPUTEREC, date=date, tenant=tenant)
+        return dict(task=tasks.TASK_TYPE_COMPUTEREC, parameters=dict(date=date, tenant=tenant, algorithm=algorithm))
 
 
 class DataTrimmingService(object):
@@ -45,4 +46,4 @@ class DataTrimmingService(object):
 
         Logger.info('Queued {0}'.format(job))
 
-        return dict(task=tasks.TASK_TYPE_TRIMDATA, date=date, tenant=tenant, period=period)
+        return dict(task=tasks.TASK_TYPE_TRIMDATA, parameters=dict(date=date, tenant=tenant, period=period))

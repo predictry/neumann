@@ -5,7 +5,6 @@ from webargs.flaskparser import use_args
 from flask import Flask, Response, jsonify
 
 from neumann import services
-from neumann.core import errors
 from neumann.utils import io
 
 app = Flask(__name__)
@@ -42,15 +41,19 @@ def harvest(args):
 @app.route("/services/recommend", methods=["POST"])
 @use_args({
     'tenant': Arg(str, required=True, location='json'),
-    'date': Arg(str, required=True, location='json')
+    'date': Arg(str, required=True, location='json'),
+    'algorithm': Arg(str, required=True, validate=lambda x: len(x) > 1, error='Invalid `string` for algorithm',
+                     location='json')
 })
 def recommend(args):
+
+    tenant = args['tenant']
+    algorithm = args['algorithm']
 
     try:
 
         date = io.parse_date(args['date'])
-        tenant = args['tenant']
-        task = services.RecommendService.compute(str(date.date()), tenant)
+        task = services.RecommendService.compute(str(date.date()), tenant, algorithm)
 
     except ValueError as exc:
         message = 'Invalid date: {0}. Format should be `YYYY-mm-dd`'.format(args['date'])

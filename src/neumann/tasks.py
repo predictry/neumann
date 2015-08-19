@@ -74,13 +74,13 @@ class ImportRecordTask(ITask):
 
     def run(self):
 
-        _import_record_task.delay(self.timestamp, self.tenant)
+        _import_record_task.delay(timestamp=self.timestamp, tenant=self.tenant)
 
 
 @job('default', connection=_redis_conn, timeout=int(taskconfig('import-record', 'timeout', 1800)))
 def _import_record_task(timestamp, tenant):
 
-    def execute(timestamp, tenant):
+    def execute():
 
         filepath = os.path.abspath(workflows.__file__)
         classname = workflows.TaskImportRecordIntoNeo4j.__name__
@@ -128,17 +128,18 @@ def _import_record_task(timestamp, tenant):
                     message
                 )
 
-    return execute(timestamp=timestamp, tenant=tenant)
+    return execute()
 
 
 class ComputeRecommendationTask(ITask):
 
-    def __init__(self, date, tenant):
+    def __init__(self, date, tenant, algorithm):
         self.date = date
         self.tenant = tenant
+        self.algorithm = algorithm
 
     def run(self):
-        _compute_recommendation_task.delay(self.date, self.tenant)
+        _compute_recommendation_task.delay(date=self.date, tenant=self.tenant, algorithm=self.algorithm)
 
     def __str__(self):
 
@@ -148,9 +149,9 @@ class ComputeRecommendationTask(ITask):
 
 
 @job('default', connection=_redis_conn, timeout=int(taskconfig('recommend', 'timeout', 3600*2)))
-def _compute_recommendation_task(date, tenant):
+def _compute_recommendation_task(date, tenant, algorithm):
     
-    def execute(date, tenant):
+    def execute():
 
         filepath = os.path.abspath(workflows.__file__)
         classname = workflows.TaskRunRecommendationWorkflow.__name__
@@ -159,6 +160,7 @@ def _compute_recommendation_task(date, tenant):
         statements = [sys.executable, filepath, classname,
                       '--date', str(date),
                       '--tenant', tenant,
+                      '--algorithm', algorithm,
                       '--workers', str(workers)]
 
         Logger.info(
@@ -197,7 +199,7 @@ def _compute_recommendation_task(date, tenant):
                     message
                 )
     
-    return execute(date=date, tenant=tenant)
+    return execute()
 
 
 class TrimDataTask(ITask):
@@ -210,7 +212,7 @@ class TrimDataTask(ITask):
 
     def run(self):
 
-        _trim_data_task.delay(self.date, self.tenant, self.starting_date, self.period)
+        _trim_data_task.delay(date=self.date, tenant=self.tenant, starting_date=self.starting_date, period=self.period)
 
     def __str__(self):
 
