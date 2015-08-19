@@ -21,7 +21,7 @@ from neumann.core.transformer import CypherTransformer
 from neumann.utils import config, io
 
 tempfile.tempdir = os.path.join(config.PROJECT_BASE, 'data/')
-JSON_EXTENSION = "JSON"
+JSON_EXTENSION = "json"
 CSV_EXTENSION = "csv"
 VALUE_SEPARATOR = ";"
 
