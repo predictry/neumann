@@ -65,7 +65,7 @@ When we search for items purchased within the same session, we're essentially lo
 ```cypher
 MATCH (s :`TenantId` :`Session`)-[:{Event}]->(i :`TenantId` :`Item` {id : {itemId} })
 WITH s, i
-MATCH (s)-[:{Event}]->(x :`Item` :`{TENANT}`)
+MATCH (s)-[:{Event}]->(x :`Item` :`TenantId`)
 WHERE x <> i
 RETURN x.id AS item, COUNT(x) AS n
 ORDER BY n DESC
@@ -107,3 +107,5 @@ that have a `price` above 45, or in between 10 and 60, e.g.:
 ```cypher
 WHERE i <> x AND x.price > 10 AND x.price < 60
 ```
+
+**Note**: This isn't implemented yet
