@@ -59,7 +59,7 @@ In this sense, we can make use of neo4j to query recommendations on implicit col
 
 There are 2 primary modes of finding items to recommend, based on the current model.
 
-1. Same session search
+I. Same session search
 When we search for items purchased within the same session, we're essentially looking at one shopping basket or cart.
 
 ```cypher
@@ -76,7 +76,8 @@ This query searches for all other items viewed/purchased in each session where o
 and sorts them by their count, returning the top `limit` items.
 For items with many connections this can run a little slower than for those with less, though.
 
-2. Different session
+
+II. Different session
 
 Looking at the same session gives us products bundled together in a purchase, or viewed in the same session.
 Users, however, can make different purchases at different times. When we're interested in these purchases, 
