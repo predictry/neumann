@@ -123,41 +123,38 @@ def handle_bad_request(err):
         'message': err_message,
     }), 500
 
+from neumann.utils import config
+from neumann.utils.logger import Logger
+import os.path
 
-if not app.debug:
+logging = config.get("logging")
+path = os.path.join(config.PROJECT_BASE, logging["logconfig"])
+Logger.setup_logging(path)
 
-    from neumann.utils import config
-    from neumann.utils.logger import Logger
+# setup database indexing
+from neumann.utils.config import PROJECT_BASE
+from neumann.core.db.neo4j import BatchTransaction
+from neumann.core.db.neo4j import Query
+import os.path
 
-    logging = config.get("logging")
+index_file = os.path.join(PROJECT_BASE, 'resources', 'db', 'schema.index')
 
-    Logger.setup_logging(logging["logconfig"])
+if os.path.exists(index_file):
+    indexes = []
 
-    # setup database indexing
-    from neumann.utils.config import PROJECT_BASE
-    from neumann.core.db.neo4j import BatchTransaction
-    from neumann.core.db.neo4j import Query
-    import os.path
+    with open(index_file, 'r') as fp:
 
-    index_file = os.path.join(PROJECT_BASE, 'resources', 'db', 'schema.index')
+        for line in fp:
 
-    if os.path.exists(index_file):
-        indexes = []
+            if line:
+                indexes.append(line)
 
-        with open(index_file, 'r') as fp:
+    with BatchTransaction() as transaction:
 
-            for line in fp:
+        for index in indexes:
+            transaction.append(Query(statement=index, params=[]))
 
-                if line:
-                    indexes.append(line)
-
-        with BatchTransaction() as transaction:
-
-            for index in indexes:
-                transaction.append(Query(statement=index, params=[]))
-
-            transaction.execute()
-
+        transaction.execute()
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=True)
