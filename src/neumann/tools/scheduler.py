@@ -10,7 +10,7 @@ from neumann.utils.logger import Logger
 
 def import_data():
     Logger.info('Scheduled import data from Neumann is running')
-    timestamp = datetime.datetime.utcnow()
+    timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=2)
     with open(os.path.join(config.PROJECT_BASE, "tenants.json"), "r") as fp:
         tenant_config = json.load(fp)
         for tenant in tenant_config["tenants"]:
@@ -19,10 +19,10 @@ def import_data():
             for algo in tenant["algo"]:
                 Logger.info(
                     'Computing recommendation for tenant [{0}] at [{1}] using algo [{2}]'.format(
-                        tenant, str(timestamp.date()), algo
+                        tenant['id'], str(timestamp.date()), algo
                     )
                 )
-                services.ComputeRecommendationTask(str(timestamp.date()), tenant, algo)
+                services.RecommendService.compute(str(timestamp.date()), tenant['id'], algo)
 
 
 def main():
