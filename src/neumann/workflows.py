@@ -556,27 +556,34 @@ class TaskStoreRecommendationResults(luigi.Task):
         Logger.info("{0} [Finished AWS Sync from `{1}` to `{2}/{3}` in {4}s]".format(task, data_dir, s3bucket, s3path,
                                                                                      end-start))
 
+        tempf = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
+
         # delete generated files
-        with open(input_filename, "r") as fpi, open(output_filename, "w") as fpo:
+        with open(input_filename, "r") as fpi, open(tempf, "w") as fpo:
 
-            reader = csv.reader(fpi)
-            next(reader)
+            try:
+                reader = csv.reader(fpi)
+                next(reader)
 
-            writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
-            writer.writerow(["tenant", "itemId", "filename", "filePath"])
+                writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
+                writer.writerow(["tenant", "itemId", "filename", "filePath"])
 
-            for row in reader:
+                for row in reader:
 
-                _, item_id, _, _, _ = row
+                    _, item_id, _, _, _ = row
 
-                filename = '.'.join([item_id, JSON_EXTENSION])
-                file_path = os.path.join(data_dir, filename)
+                    filename = '.'.join([item_id, JSON_EXTENSION])
+                    file_path = os.path.join(data_dir, filename)
 
-                os.remove(file_path)
+                    os.remove(file_path)
 
-                writer.writerow([self.tenant, item_id, filename, file_path])
+                    writer.writerow([self.tenant, item_id, filename, file_path])
+            except:
+                os.remove(tempf)
+                raise
 
         # TODO: delete the folder used to store temp files
+        shutil.move(tempf, output_filename)
 
         return
 
