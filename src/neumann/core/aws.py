@@ -11,6 +11,7 @@ from boto.exception import S3ResponseError
 
 from neumann.core import errors
 from neumann.utils.logger import Logger
+from neumann.utils import config
 
 
 class S3(object):
@@ -130,10 +131,15 @@ class S3(object):
 
         s3path = os.path.join("s3://", bucket, s3path)
 
-        awscli = os.path.join(os.path.abspath(os.path.join(sys.executable, os.pardir)), "aws")
+        awsconfig = config.get('s3')
+        if 'cli' in awsconfig:
+            awscli = awsconfig['cli']
+        else:
+            awscli = os.path.join(os.path.abspath(os.path.join(sys.executable, os.pardir)), "aws")
+
         cmd = [awscli, "s3", "sync", directory, s3path]
 
-        Logger.info("Running command:\t{0}".format(''.join(cmd)))
+        Logger.info("Running command:\t{0}".format(' '.join(cmd)))
 
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=False)
 
