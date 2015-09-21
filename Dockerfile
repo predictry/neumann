@@ -76,6 +76,9 @@ ADD client.cfg /etc/luigi/client.cfg
 # Tasks config
 ADD tasks.ini ${APPDIR}/
 
+# Add tenants for scheduling
+ADD tenants.json ${APPDIR}/
+
 USER root
 
 #supervisor

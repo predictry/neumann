@@ -7,7 +7,6 @@ config.ini
 tasks.ini
 logging.json
 nginx-app.conf
-supervisor-app.conf
 uwsgi_params
 uwsgi.ini
 client.cfg

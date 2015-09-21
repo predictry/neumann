@@ -12,6 +12,7 @@ import luigi
 import requests
 import dateutil.tz
 import dateutil.parser
+from distutils.dir_util import copy_tree
 from neumann import Logger
 from neumann.core import constants, aws, errors, parser
 from neumann.core.db import neo4j
@@ -551,14 +552,16 @@ class TaskStoreRecommendationResults(luigi.Task):
 
         aws.S3.sync(data_dir, s3bucket, s3path)
 
+        if self.tenant in config.get("output", "targettenants").split():
+            copy_tree(data_dir, os.path.join(config.get("output", "dir"), s3path))
+
         end = time.time()
 
         Logger.info("{0} [Finished AWS Sync from `{1}` to `{2}/{3}` in {4}s]".format(task, data_dir, s3bucket, s3path,
                                                                                      end-start))
 
-        tempf = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
-
         # delete generated files
+        tempf = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
         with open(input_filename, "r") as fpi, open(tempf, "w") as fpo:
 
             try:

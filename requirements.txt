@@ -11,3 +11,4 @@ neo4jrestclient==2.1.0
 schedule==0.3.1
 webargs==0.13.0
 python-dateutil==2.4.2
+stomp.py==4.1.5

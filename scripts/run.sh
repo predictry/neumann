@@ -19,8 +19,16 @@ function run(){
         chmod 777 ${DATA} -R
     fi
     echo ${DATA}
+
+    S3COPY=/volumes/neo/neumann/s3copy
+    if [ ! -d "${S3COPY}" ]; then
+        mkdir ${S3COPY}
+        chmod 777 ${S3COPY} -R
+    fi
+    echo ${S3COPY}
+
     docker rm -f neumann
-    docker run -it -d -P -v  ${DATA}:/app/data --name neumann predictry/neumann
+    docker run -it -d -P -v ${DATA}:/app/data -v ${S3COPY}:/app/s3copy --name neumann predictry/neumann
 }
 
 run
