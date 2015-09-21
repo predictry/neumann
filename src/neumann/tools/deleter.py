@@ -50,7 +50,9 @@ class DeleteEventListener(stomp.ConnectionListener):
 
 
 def main():
-    conn = stomp.Connection()
+    host_and_port = (config.get("stomp", "host"), config.get("stomp", "port", int))
+    Logger.info('Trying to connect to message queue in {0}.'.format(host_and_port))
+    conn = stomp.Connection(host_and_ports=[host_and_port])
     conn.set_listener('', DeleteEventListener())
     conn.start()
     conn.connect('admin', 'admin', wait=True)

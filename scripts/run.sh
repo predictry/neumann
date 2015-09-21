@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 function run(){
 
@@ -20,12 +20,7 @@ function run(){
     fi
     echo ${DATA}
 
-    S3COPY=/volumes/neo/neumann/s3copy
-    if [ ! -d "${S3COPY}" ]; then
-        mkdir ${S3COPY}
-        chmod 777 ${S3COPY} -R
-    fi
-    echo ${S3COPY}
+    S3COPY="/volumes/neo/neumann/s3copy"
 
     docker rm -f neumann
     docker run -it -d -P -v ${DATA}:/app/data -v ${S3COPY}:/app/s3copy --name neumann predictry/neumann
