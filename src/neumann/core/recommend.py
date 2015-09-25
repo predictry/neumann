@@ -88,12 +88,10 @@ def _generate(tenant, rtype, item_id, filters=None, limit=None, fields=None):
         }[x]
 
         template = """
-            MATCH (i :`{TENANT}` :`{ITEM_LABEL}` {{id:{{item_id}}}})<-[r1 :{ACTION}]-(s1 :`{TENANT}` :`{SESSION_LABEL}`)\
-            -[:`BY`]->(u :`{TENANT}` :`{USER_LABEL}`)<-[:`BY`]-(s2 :`{TENANT}` :`{SESSION_LABEL}`)-[:{ACTION}]\
-            ->(x :`{TENANT}` :`{ITEM_LABEL}`)
-            WHERE i <> x AND s1 <> s2
-            WITH x
-            LIMIT {{volume}}
+            MATCH (u:`{TENANT}`:User)<-[:BY]-(:`{TENANT}`:Session)-[:{ACTION}]->(i:`{TENANT}`:Item {{id:{{item_id}}}})
+            WITH u,i
+            MATCH (u)<-[:BY]-(:`{TENANT}`:Session)-[:{ACTION}]->(x:`{TENANT}`:Item)
+            WHERE x <> i
             RETURN x.id AS item, COUNT(x) AS n
             ORDER BY n DESC
             LIMIT {{limit}}
