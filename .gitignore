@@ -3,15 +3,4 @@ app-env/
 *.pyc
 *.log*
 data/
-config.ini
-tasks.ini
-logging.json
-nginx-app.conf
-uwsgi_params
-uwsgi.ini
-client.cfg
-luigi-state.pickle
-luigi-task-hist.db
-
-#white-list
-!conf/*
+config/prod/

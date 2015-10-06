@@ -1,0 +1,8 @@
+{
+  "tenants": [
+    {
+      "id": "FITREBELCOM",
+      "algo": ["duo"]
+    }
+  ]
+}

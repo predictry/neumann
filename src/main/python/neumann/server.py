@@ -123,38 +123,30 @@ def handle_bad_request(err):
         'message': err_message,
     }), 500
 
-from neumann.utils import config
 from neumann.utils.logger import Logger
-import os.path
+from neumann.utils.config import LOGGING_CONFIG_FILE
 
-logging = config.get("logging")
-path = os.path.join(config.PROJECT_BASE, logging["logconfig"])
-Logger.setup_logging(path)
+Logger.setup_logging(LOGGING_CONFIG_FILE)
 
 # setup database indexing
-from neumann.utils.config import PROJECT_BASE
 from neumann.core.db.neo4j import BatchTransaction
 from neumann.core.db.neo4j import Query
 import os.path
 
-index_file = os.path.join(PROJECT_BASE, 'resources', 'db', 'schema.index')
+index_statements = [
+    'CREATE INDEX ON :`Search`(keywords);',
+    'CREATE INDEX ON :`User`(id);',
+    'CREATE INDEX ON :`Session`(id);',
+    'CREATE INDEX ON :`Session`(timestamp);',
+    'CREATE INDEX ON :`Agent`(id);',
+    'CREATE INDEX ON :`Item`(id);',
+    'CREATE INDEX ON :`Item`(end_date);',
+    'CREATE INDEX ON :`Item`(categories);']
 
-if os.path.exists(index_file):
-    indexes = []
-
-    with open(index_file, 'r') as fp:
-
-        for line in fp:
-
-            if line:
-                indexes.append(line)
-
-    with BatchTransaction() as transaction:
-
-        for index in indexes:
-            transaction.append(Query(statement=index, params=[]))
-
-        transaction.execute()
+with BatchTransaction() as transaction:
+    for statement in index_statements:
+        transaction.append(Query(statement=statement, params=[]))
+    transaction.execute()
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=True)

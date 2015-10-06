@@ -23,8 +23,7 @@ RUN apt-get install supervisor -y
 RUN apt-get install libsqlite3-dev -y
 RUN apt-get install python-setuptools -y
 RUN apt-get install python-dev -y
-RUN apt-get install python-pip=1.5.4-1 -y
-RUN pip install virtualenv
+RUN apt-get install python-pip -y
 RUN apt-get install tcl8.5 -y
 RUN apt-get install git -y
 RUN apt-get install redis-server -y
@@ -41,58 +40,42 @@ RUN make install
 RUN rm -rf /tmp/Python-3.4.2*
 
 # Add user
-RUN adduser --disabled-password --gecos "" dispatch
-
-# Create app DIR
-ENV APP app
-ENV APPDIR /${APP}
-RUN mkdir -p ${APPDIR}
-RUN chown -R dispatch:dispatch ${APPDIR}
-RUN mkdir /etc/luigi
-
-USER dispatch
-
-# copy code & config files
-ADD requirements.txt ${APPDIR}/
-ADD scripts ${APPDIR}/scripts
-
-# Build app env
-WORKDIR ${APPDIR}
-RUN mkdir data
-RUN bash scripts/build-env.sh
-
-ADD nginx-app.conf supervisor-app.conf uwsgi.ini uwsgi_params ${APPDIR}/
-ADD README.md config.ini logging.json ${APPDIR}/
-ADD src ${APPDIR}/src
-ADD tests ${APPDIR}/tests
-
-# Boto config
-ADD boto.cfg ${APPDIR}/boto.cfg
-ENV BOTO_CONFIG ${APPDIR}/boto.cfg
-
-# Luigi config
-ADD client.cfg /etc/luigi/client.cfg
-
-# Tasks config
-ADD tasks.ini ${APPDIR}/
-
-# Add tenants for scheduling
-ADD tenants.json ${APPDIR}/
-
+RUN adduser --disabled-password --gecos "" neumann
+USER neumann
+RUN mkdir /home/neumann/log
 USER root
+RUN mkdir /var/neumann
+RUN chown neumann /var/neumann
 
-#supervisor
-RUN service supervisor restart
+# Copy and extract apps
+WORKDIR /home/neumann
+ADD requirements.txt /home/neumann/
+RUN pip3 install -r requirements.txt
+ENV NEUMANN_VERSION 0.3
+ADD neumann-$NEUMANN_VERSION.tar.gz /home/neumann
+WORKDIR /home/neumann/neumann-$NEUMANN_VERSION
+RUN python3 setup.py install
+
+# Configuration files
+RUN mkdir /etc/luigi
+ADD uwsgi.ini /etc/neumann/
+ADD uwsgi_params /etc/neumann/
+ADD config.ini /etc/neumann/
+ADD tasks.ini /etc/neumann/
+ADD logging.json /etc/neumann/
+ADD tenants.json /etc/neumann/
+ADD supervisor-app.conf /etc/supervisor/conf.d/
+ADD nginx-app.conf /etc/nginx/sites-enabled/
+ADD boto.cfg /etc/neumann/
+ADD client.cfg /etc/luigi/client.cfg
 RUN echo "daemon off;" >> /etc/nginx/nginx.conf
 RUN rm /etc/nginx/sites-enabled/default
+ENV BOTO_CONFIG /etc/neumann/boto.cfg
 
-RUN ln -s ${APPDIR}/nginx-app.conf /etc/nginx/sites-enabled/
-RUN ln -s ${APPDIR}/supervisor-app.conf /etc/supervisor/conf.d/
-
-RUN chown -R dispatch:dispatch ${APPDIR}
-
+# Networking
 EXPOSE 80
 EXPOSE 8082
 
-# Run services via supervisor
+# Run
+USER root
 CMD ["supervisord", "-n"]

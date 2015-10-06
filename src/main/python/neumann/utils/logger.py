@@ -53,6 +53,11 @@ class Logger:
         logger.error(msg, *args, **kwargs)
 
     @classmethod
+    def exception(cls, exception):
+        logger = logging.getLogger('neumann')
+        logger.exception(exception)
+
+    @classmethod
     def critical(cls, msg, *args, **kwargs):
         logger = logging.getLogger('neumann')
         logger.critical(msg, *args, **kwargs)

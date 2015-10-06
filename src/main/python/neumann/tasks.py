@@ -9,7 +9,7 @@ from rq.decorators import job
 from neumann import workflows
 from neumann.utils.logger import Logger
 from neumann.core import errors
-from neumann.utils import config
+from neumann.utils.config import TASK_CONFIG_FILE
 from neumann.ops.interfaces import ITask
 
 _redis_conn = Redis()
@@ -28,14 +28,12 @@ TASK_TYPES = (
     TASK_TYPE_TRIMDATA
 )
 
-TASK_CONFIG = os.path.join(config.PROJECT_BASE, 'tasks.ini')
-
 
 def taskconfig(task, option=None, fallback=None, type=None):
 
     config = configparser.ConfigParser()
 
-    with open(TASK_CONFIG, "r") as fp:
+    with open(TASK_CONFIG_FILE, "r") as fp:
         config.read_file(fp)
 
         if option:

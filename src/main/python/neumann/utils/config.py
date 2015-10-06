@@ -4,9 +4,17 @@ import configparser
 
 from neumann.core import errors
 
-PROJECT_BASE = ''.join([os.path.dirname(os.path.abspath(__file__)), "/../../../"])
-CONFIG_FILE = ''.join([PROJECT_BASE, 'config.ini'])
+PROJECT_BASE = './'
+CONFIG_DIR = None
+for config_dir in os.path.join(os.curdir, 'config', 'dev'), os.path.join(os.curdir, 'config', 'prod'), '/etc/neumann':
+    if os.path.isdir(config_dir) and os.path.exists(config_dir):
+        CONFIG_DIR = config_dir
+        break
 
+CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.ini')
+TASK_CONFIG_FILE = os.path.join(CONFIG_DIR, 'tasks.ini')
+LOGGING_CONFIG_FILE = os.path.join(CONFIG_DIR, 'logging.json')
+TENANTS_CONFIG_FILE = os.path.join(CONFIG_DIR, 'tenants.json')
 
 def get(section, option=None, type=None):
 
