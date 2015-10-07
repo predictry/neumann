@@ -12,6 +12,7 @@ from boto.exception import S3ResponseError
 from neumann.core import errors
 from neumann.utils.logger import Logger
 from neumann.utils import config
+from neumann.utils.env import exclude_env
 
 
 class S3(object):
@@ -66,6 +67,7 @@ class S3(object):
             return file_path, 200
 
     @classmethod
+    @exclude_env('DISABLE_AWS')
     def delete(cls, s3_key):
 
         conn = S3Connection()
@@ -89,6 +91,7 @@ class S3(object):
             return 200
 
     @classmethod
+    @exclude_env('DISABLE_AWS')
     def upload_file(cls, s3_key, file_path):
 
         conn = S3Connection()
@@ -127,6 +130,7 @@ class S3(object):
             raise errors.ProcessFailureError
 
     @classmethod
+    @exclude_env('DISABLE_AWS')
     def sync(cls, directory, bucket, s3path):
 
         s3path = os.path.join("s3://", bucket, s3path)

@@ -550,7 +550,7 @@ class TaskStoreRecommendationResults(luigi.Task):
 
         start = time.time()
 
-        #aws.S3.sync(data_dir, s3bucket, s3path)
+        aws.S3.sync(data_dir, s3bucket, s3path)
 
         if self.tenant in config.get("output", "targettenants").split():
             s3copy = os.path.join('/var/neumann', config.get('output', 'dir'), s3path)

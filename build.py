@@ -121,6 +121,21 @@ def docker_push(project, logger):
                      "fisher.predictry.com:5000/predictry/neumann-{0}:{1}".format(profile, project.version)])
 
 
+@task
+def install_dev_configs(project, logger):
+    # Copying configuration files
+    target_dir = os.path.expanduser('~/.local/share/neumann/config')
+    if not os.path.exists(target_dir):
+        logger.info("Creating {0}".format(target_dir))
+        os.makedirs(target_dir)
+    config_dir = project.expand('$basedir/config/dev')
+    for filename in os.listdir(project.expand(config_dir)):
+        full_filename = os.path.join(config_dir, filename)
+        if os.path.isfile(full_filename):
+            logger.info("Copying {0} to {1}".format(full_filename, target_dir))
+            shutil.copy(full_filename, target_dir)
+
+
 @init
 def initialize(project):
     project.depends_on_requirements("requirements.txt")

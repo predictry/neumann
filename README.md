@@ -30,7 +30,10 @@ If you have finished modifying the source code and tested it properly, you can b
 it to local registry by executing:
 
     (app-env)$ pyb docker_push
-    
+
+Before you can push to local Docker registry, make sure you have added self signed certificate that is located
+in `/volumes/neo/registry/certs`.
+
 Inside Docker container, neumann will be installed as Python module (without `virtualenv`).  You can access `neumann`
  module from any Python code.  You can also execute all the scripts under `scripts` folder from any location.  For
  example, you can execute the following scripts directly from terminal inside Docker:
@@ -43,6 +46,9 @@ Inside Docker container, neumann will be installed as Python module (without `vi
 See [doc](doc/Configuration.md) system for configuration.
 
 You can put all configuration files for development under `confg/dev` folder and for production under `config/prod`.
+
+During execution, the search order for configuration files is from `~/.local/share/neumann/config`, `./config/dev`, 
+`./config/prod` and `/etc/neumann`.
 
 ## Docker Container
 
@@ -73,6 +79,22 @@ Apart from all Python scripts in `scripts` folder, you can also run Luigi task u
  
     $ luigi --module neumann.workflows TaskRunRecommendationWorkflow --local-scheduler \
       --algorithm duo --date 2015-08-01 --tenant SOUKAIMY
+
+## How To Debug
+
+If you don't have PyCharm Full Edition which allow remote debugging inside Docker container, you'll need to launch
+ and debug neumann directly from your host machine.  To do this, you can start from copying the latest configuration 
+ files to local home directory by invoking:
+  
+    $ pyb install_dev_configs
+    
+Provided you have the right configurations, you will be able to launch scripts from IDE and place breakpoints and 
+inspect variables to solve bugs.  To disable AWS S3 operations that modifies S3 store, you can create an environment 
+variable named `DISABLE_AWS`.
+
+Scripts under `src/main/scripts` are straight forward since they can be debugged directly by selecting *Debug* in context
+ menu.  For Luigi task, you can create debug configuration for `/home/jocki/PycharmProjects/neumann/src/main/python/neumann/workflows.py`
+ and specify the name of the task to launch as script parameters (don't forget to use `--local-scheduler`).
 
 ### Services
 
