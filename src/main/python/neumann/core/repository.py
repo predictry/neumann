@@ -126,7 +126,7 @@ class Neo4jRepository(object):
     @classmethod
     def get_tenant_list_of_items_id(cls, tenant, skip=0, limit=10):
 
-        statement = 'MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n.id AS id SKIP {{skip}} LIMIT {{limit}}'.format(
+        statement = 'MATCH (n :`{LABEL}` :`{TENANT}`) RETURN n.id AS id ORDER BY n.id SKIP {{skip}} LIMIT {{limit}}'.format(
             LABEL=constants.LABEL_ITEM, TENANT=tenant
         )
 

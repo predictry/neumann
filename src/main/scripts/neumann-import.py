@@ -1,8 +1,7 @@
 import argparse
 import datetime
-import sys
-import subprocess
 import os.path
+import luigi
 from neumann import workflows
 
 parser = argparse.ArgumentParser(description='This script will tell Neumann to import data from Tapirus')
@@ -20,11 +19,6 @@ while date < end_date:
         timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=2)
         filepath = os.path.abspath(workflows.__file__)
         classname = workflows.TaskImportRecordIntoNeo4j.__name__
-        statements = [sys.executable, filepath, classname,
-                      '--date', date.strftime("%Y-%m-%d"),
-                      '--hour', str(hour),
-                      '--tenant', args.tenant,
-                      '--local-scheduler']
-        p = subprocess.Popen(statements)
-        stdout, stderr = p.communicate()
+        task = workflows.TaskImportRecordIntoNeo4j(date=date.strftime("%Y-%m-%d"), hour=hour, tenant=args.tenant)
+        luigi.build([task], local_scheduler=True)
     date += datetime.timedelta(days=1)

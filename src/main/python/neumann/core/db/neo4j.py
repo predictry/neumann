@@ -330,7 +330,7 @@ def run_query(query, commit=True, timeout=30):
     tx = graph.transaction(for_query=True)
 
     q = query.statement
-    p = {param.key: param.value for param in query.params}
+    p = {param.key: param.value for param in query.params} if query.params is not None else None
 
     tx.append(q, params=p)
 

@@ -22,6 +22,8 @@ from neumann.core.transformer import CypherTransformer
 from neumann.utils import config, io
 
 tempfile.tempdir = os.path.expanduser('/var/neumann/data')
+if not os.path.exists(tempfile.gettempdir()):
+    os.makedirs(tempfile.gettempdir())
 JSON_EXTENSION = "json"
 CSV_EXTENSION = "csv"
 VALUE_SEPARATOR = ";"
@@ -62,8 +64,7 @@ class TaskDownloadRecord(luigi.Task):
         if not os.path.exists(tempfile.gettempdir()):
             os.makedirs(tempfile.gettempdir())
 
-        if not os.path.exists(os.path.dirname(self.output().path)):
-            os.makedirs(os.path.dirname(self.output().path))
+        self.output().makedirs()
 
         response = requests.get(url, params)
 
@@ -119,7 +120,7 @@ class TaskDownloadRecord(luigi.Task):
                         )
                     )
 
-                with open(self.output().path, 'w') as fp:
+                with self.output().open('w') as fp:
 
                     json.dump(dict(records=files, status=status), fp, cls=io.DateTimeEncoder)
 
@@ -142,7 +143,7 @@ class TaskDownloadRecord(luigi.Task):
 
             out = dict(records=[], status=status)
 
-            with open(self.output().path, 'w') as fp:
+            with self.output().open('w') as fp:
 
                 json.dump(out, fp, cls=io.DateTimeEncoder)
 
@@ -186,15 +187,14 @@ class TaskImportRecordIntoNeo4j(luigi.Task):
 
     def run(self):
 
-        if not os.path.exists(os.path.dirname(self.output().path)):
-            os.makedirs(os.path.dirname(self.output().path))
+        self.output().makedirs()
 
-        with open(self.input().path, 'r') as fp:
+        with self.input().open('r') as fp:
 
             inp = json.load(fp)
 
             if inp['status'] == 'NOT_FOUND':
-                os.remove(self.input().path)
+                self.input().remove()
                 return
 
             for record in inp['records']:
@@ -248,7 +248,7 @@ class TaskImportRecordIntoNeo4j(luigi.Task):
 
                     except FileNotFoundError:
 
-                        os.remove(self.input().path)
+                        self.input().remove()
                         return
 
                     else:
@@ -264,7 +264,7 @@ class TaskImportRecordIntoNeo4j(luigi.Task):
                     # delete log file
                     os.remove(recordpath)
 
-            with open(self.output().path, 'w') as wp:
+            with self.output().open('w') as wp:
                 message = 'Records Imported for [tenant={0}, date={1}, hour={2}]: {3}'.format(
                     self.tenant, self.date.__str__(), self.hour, len(inp['records'])
                 )
@@ -279,12 +279,14 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
     start = luigi.IntParameter()
     end = luigi.IntParameter()
     id = luigi.IntParameter()
+    limit = luigi.IntParameter(default=50000)
 
     def output(self):
 
         file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant,
                                                  self.id, CSV_EXTENSION)
-
+        if not os.path.exists(tempfile.gettempdir()):
+            os.makedirs(tempfile.gettempdir())
         file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
         return luigi.LocalTarget(file_path)
@@ -292,46 +294,28 @@ class TaskRetrieveTenantsItemsList(luigi.Task):
     def run(self):
 
         task = "`{0}`::`{1}`::`{2}`".format(self.__class__.__name__, self.tenant, self.id)
-
-        limit = 50000
         skip = 0 + self.start
+        self.output().makedirs()
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, self.output().path, self.tenant))
 
-        filename = self.output().path
-
-        if not os.path.exists(tempfile.gettempdir()):
-            os.makedirs(tempfile.gettempdir())
-
-        if not os.path.exists(os.path.dirname(filename)):
-            os.makedirs(os.path.dirname(filename))
-
-            Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(filename), self.tenant))
-
-        tempf = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
-
-        with open(tempf, "w") as fp:
+        count = 0
+        expected_count = self.end - self.start
+        with self.output().open("w") as fp:
 
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
             writer.writerow(["tenant", "itemId"])
 
-            try:
-                while skip < self.end:
-
-                    items = Neo4jRepository.get_tenant_list_of_items_id(self.tenant, skip, limit)
-
-                    for item_id in items:
-                        writer.writerow([self.tenant, item_id])
-
-                    Logger.info("{0} [Fetched `{1}` item IDs for `{2}`, skipped `{3}`]".format(task, len(items),
-                                                                                               self.tenant, skip))
-
-                    skip += limit
-            except Exception:
-                os.remove(tempf)
-                raise
-
-        shutil.move(tempf, filename)
-
-        return
+            while count < expected_count:
+                items = Neo4jRepository.get_tenant_list_of_items_id(self.tenant, skip, self.limit)
+                if not items: break
+                if (count + len(items)) > expected_count:
+                    items = items[:expected_count-count]
+                for item_id in items:
+                    writer.writerow([self.tenant, item_id])
+                Logger.info("{0} [Fetched `{1}` item IDs for `{2}`, skipped `{3}`]".format(task, len(items),
+                                                                                           self.tenant, skip))
+                skip += self.limit
+                count += len(items)
 
 
 class TaskComputeRecommendations(luigi.Task):
@@ -364,104 +348,56 @@ class TaskComputeRecommendations(luigi.Task):
 
         # TODO: read options from Task configuration
 
-        output_filename = self.output().path
-        input_filename = self.input().path
-
         if not os.path.exists(tempfile.gettempdir()):
             os.makedirs(tempfile.gettempdir())
 
-        if not os.path.exists(os.path.dirname(output_filename)):
-            os.makedirs(os.path.dirname(output_filename))
-
-            Logger.info(
-                "{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(output_filename),
-                                                                 self.tenant)
-            )
+        self.output().makedirs()
+        Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, self.output().path,
+                                                                     self.tenant))
 
         # compute recommendations
-        tempf = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
+        with self.input().open('r') as fpi, self.output().open('w') as fpo:
 
-        try:
+            reader = csv.reader(fpi)
+            next(reader)
 
-            with open(input_filename, "r") as fpi, open(tempf, "w") as fpo:
+            writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
+            writer.writerow(["tenant", "itemId", "nResults", "recommendationType", "recommendedItems"])
 
-                reader = csv.reader(fpi)
-                next(reader)
+            counter = 0
+            candidates = []
 
-                writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
-                writer.writerow(["tenant", "itemId", "nResults", "recommendationType", "recommendedItems"])
+            def BRP(candidates, writer=writer, tenant=self.tenant, algorithm=self.algorithm):
 
-                counter = 0
-                candidates = []
+                results = BatchRecommendationProvider.compute(tenant, algorithm, candidates)
 
-                def BRP(candidates, writer=writer, tenant=self.tenant, algorithm=self.algorithm):
+                for i in range(0, len(candidates)):
 
-                    results = BatchRecommendationProvider.compute(tenant, algorithm, candidates)
+                    # get item ids
+                    items = list(set([item['id'] for item in results[i]]))
 
-                    for i in range(0, len(candidates)):
+                    # register computation
+                    writer.writerow([tenant, candidates[i], len(items),
+                                     algorithm,
+                                     VALUE_SEPARATOR.join(item_id for item_id in items)])
 
-                        # get item ids
-                        items = list(set([item['id'] for item in results[i]]))
+                del candidates[:]
 
-                        # register computation
-                        writer.writerow([tenant, candidates[i], len(items),
-                                         algorithm,
-                                         VALUE_SEPARATOR.join(item_id for item_id in items)])
+            for row in reader:
 
-                    del candidates[:]
+                counter += 1
 
-                for row in reader:
+                _, item_id = row
 
-                    counter += 1
+                candidates.append(item_id)
 
-                    _, item_id = row
-
-                    candidates.append(item_id)
-
-                    if counter % batch_size == 0:
-
-                        BRP(candidates)
-
-                        # results = BatchRecommendationProvider.compute(self.tenant, self.algorithm, candidates)
-                        #
-                        # for i in range(0, len(candidates)):
-                        #
-                        #     # get item ids
-                        #     items = list(set([item['id'] for item in results[i]]))
-                        #
-                        #     # register computation
-                        #     writer.writerow([self.tenant, candidates[i], len(items),
-                        #                      self.algorithm,
-                        #                      VALUE_SEPARATOR.join(item_id for item_id in items)])
-                        #
-                        # del candidates[:]
-
-                if candidates:
+                if counter % batch_size == 0:
 
                     BRP(candidates)
-                    # results = BatchRecommendationProvider.compute(self.tenant, self.algorithm, candidates)
-                    #
-                    # for i in range(0, len(candidates)):
-                    #
-                    #     # get item ids
-                    #     items = list(set([item['id'] for item in results[i]]))
-                    #
-                    #     # register computation
-                    #     writer.writerow([self.tenant, candidates[i], len(items),
-                    #                      self.algorithm,
-                    #                      VALUE_SEPARATOR.join(item_id for item_id in items)])
-                    #
-                    # del candidates[:]
 
-        except errors.UnknownRecommendationOption:
-            raise
-        except Exception:
-            os.remove(tempf)
-            raise
+            if candidates:
 
-        shutil.move(tempf, output_filename)
-
-        return
+                BRP(candidates)
 
 
 class TaskStoreRecommendationResults(luigi.Task):
@@ -494,14 +430,10 @@ class TaskStoreRecommendationResults(luigi.Task):
         data_dir = os.path.join(tempfile.gettempdir(), self.date.__str__(), self.__class__.__name__, self.tenant,
                                 self.algorithm, str(self.id))
 
-        input_filename = self.input().path
-        output_filename = self.output().path
-
         if not os.path.exists(tempfile.gettempdir()):
             os.makedirs(tempfile.gettempdir())
 
-        if not os.path.exists(os.path.dirname(output_filename)):
-            os.makedirs(os.path.dirname(output_filename))
+        self.output().makedirs()
 
         # generate files
         s3 = config.get("s3")
@@ -510,7 +442,6 @@ class TaskStoreRecommendationResults(luigi.Task):
 
         if not os.path.exists(os.path.dirname(data_dir)):
             os.makedirs(os.path.dirname(data_dir))
-
             Logger.info("{0} [Created directory `{1}` for `{2}`]".format(task, os.path.dirname(data_dir), self.tenant))
 
         try:
@@ -521,7 +452,7 @@ class TaskStoreRecommendationResults(luigi.Task):
             else:
                 raise exc
 
-        with open(input_filename, "r") as fp:
+        with self.input().open('r') as fp:
 
             reader = csv.reader(fp)
             next(reader)
@@ -563,34 +494,19 @@ class TaskStoreRecommendationResults(luigi.Task):
                                                                                      end-start))
 
         # delete generated files
-        tempf = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
-        with open(input_filename, "r") as fpi, open(tempf, "w") as fpo:
+        with self.input().open('r') as fpi, self.output().open('w') as fpo:
+            reader = csv.reader(fpi)
+            next(reader)
 
-            try:
-                reader = csv.reader(fpi)
-                next(reader)
+            writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
+            writer.writerow(["tenant", "itemId", "filename", "filePath"])
 
-                writer = csv.writer(fpo, quoting=csv.QUOTE_ALL)
-                writer.writerow(["tenant", "itemId", "filename", "filePath"])
-
-                for row in reader:
-
-                    _, item_id, _, _, _ = row
-
-                    filename = '.'.join([item_id, JSON_EXTENSION])
-                    file_path = os.path.join(data_dir, filename)
-
-                    os.remove(file_path)
-
-                    writer.writerow([self.tenant, item_id, filename, file_path])
-            except:
-                os.remove(tempf)
-                raise
-
-        # TODO: delete the folder used to store temp files
-        shutil.move(tempf, output_filename)
-
-        return
+            for row in reader:
+                _, item_id, _, _, _ = row
+                filename = '.'.join([item_id, JSON_EXTENSION])
+                file_path = os.path.join(data_dir, filename)
+                os.remove(file_path)
+                writer.writerow([self.tenant, item_id, filename, file_path])
 
 
 class TaskRunRecommendationWorkflow(luigi.Task):
@@ -598,18 +514,16 @@ class TaskRunRecommendationWorkflow(luigi.Task):
     algorithm = luigi.Parameter()
     date = luigi.DateParameter()
     tenant = luigi.Parameter()
+    job_size = luigi.IntParameter(default=50000)
 
     def requires(self):
 
         n = Neo4jRepository.get_item_count_for_tenant(tenant=self.tenant)
-
-        job_size = 50000
         jobs = []
-
         c = 1
-        for i in range(0, n, job_size):
-            limit = i + job_size
-            jobs.append((c, i, limit - 1 if limit < n else n))
+        for i in range(0, n, self.job_size):
+            limit = i + self.job_size
+            jobs.append((c, i, limit if limit < n else n))
             c += 1
 
         return [TaskStoreRecommendationResults(date=self.date, tenant=self.tenant, algorithm=self.algorithm, id=r[0],
