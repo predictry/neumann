@@ -3,21 +3,12 @@ import tempfile
 import shutil
 import json
 import os
-
 import neumann.workflows
 import luigi
-from luigi.mock import MockTarget
+from mock import LocalFileTargetMock
 from neumann.core.db import neo4j
 from neumann.utils import config
-
-
-class LocalFileTargetMock(MockTarget):
-
-    def __init__(self, filename):
-        super().__init__(filename)
-
-    def makedirs(self):
-        pass
+from luigi.mock import MockTarget
 
 
 class TaskDownloadRecordMocked(neumann.workflows.TaskDownloadRecord):

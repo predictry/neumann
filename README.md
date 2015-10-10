@@ -72,6 +72,15 @@ And then, you can crate the container from the latest image in local Docker regi
 neumann use shared folders that can be found under `/var/neumann` (inside the container).  It can then be mounted to 
 host folder for persistent storage.
 
+## How To Test
+
+When you run PyBuilder commands for building and packaging neumann, unit tests will automatically run and if any of
+them fails, you won't be able to build or deploy.
+
+If you want to run the test manually, you can execute:
+
+    $ pyb run_unit_tests
+
 ## How To Run
 
 Apart from all Python scripts in `scripts` folder, you can also run Luigi task using interactive terminal inside Docker
