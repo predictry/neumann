@@ -7,6 +7,7 @@ use_plugin("python.core")
 use_plugin("python.install_dependencies")
 use_plugin("python.distutils")
 use_plugin("python.unittest")
+use_plugin("python.integrationtest")
 use_plugin("source_distribution")
 
 default_task = "publish"
