@@ -60,7 +60,7 @@ def taskconfig(task, option=None, fallback=None, type=None):
 
 class ImportRecordTask(ITask):
 
-    def __init__(self, timestamp, tenant, job_id=''):
+    def __init__(self, timestamp, tenant, job_id='default_job_id'):
         self.timestamp = timestamp
         self.tenant = tenant
         self.job_id = job_id
@@ -77,7 +77,7 @@ class ImportRecordTask(ITask):
 
 
 @job('default', connection=_redis_conn, timeout=int(taskconfig('import-record', 'timeout', 1800)))
-def _import_record_task(timestamp, tenant, job_id=''):
+def _import_record_task(timestamp, tenant, job_id='default_job_id'):
 
     def execute():
 
@@ -133,7 +133,7 @@ def _import_record_task(timestamp, tenant, job_id=''):
 
 class ComputeRecommendationTask(ITask):
 
-    def __init__(self, date, tenant, algorithm, job_id=''):
+    def __init__(self, date, tenant, algorithm, job_id='default_job_id'):
         self.date = date
         self.tenant = tenant
         self.algorithm = algorithm
@@ -151,7 +151,7 @@ class ComputeRecommendationTask(ITask):
 
 
 @job('default', connection=_redis_conn, timeout=int(taskconfig('recommend', 'timeout', 3600*2)))
-def _compute_recommendation_task(date, tenant, algorithm, job_id=''):
+def _compute_recommendation_task(date, tenant, algorithm, job_id='default_job_id'):
     
     def execute():
 
@@ -207,7 +207,7 @@ def _compute_recommendation_task(date, tenant, algorithm, job_id=''):
 
 class TrimDataTask(ITask):
 
-    def __init__(self, date, tenant, starting_date, period, job_id=''):
+    def __init__(self, date, tenant, starting_date, period, job_id='default_job_id'):
         self.date = date
         self.tenant = tenant
         self.starting_date = starting_date
@@ -228,7 +228,7 @@ class TrimDataTask(ITask):
 
 
 @job('default', connection=_redis_conn, timeout=3600)
-def _trim_data_task(date, tenant, starting_date, period, job_id=''):
+def _trim_data_task(date, tenant, starting_date, period, job_id='default_job_id'):
 
     def execute():
 

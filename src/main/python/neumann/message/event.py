@@ -3,17 +3,20 @@ import luigi
 import stomp
 import time
 from neumann import Logger
+from neumann.utils import config
 
 
 class EventEmitter:
 
     def send(self, message):
         str_message = ujson.dumps(message)
-        Logger.info('Sending [{0}] to OMS.REPLY'.format(str_message))
-        conn = stomp.Connection()
+        Logger.info('Sending [{0}] to OMS.STATUS'.format(str_message))
+        host_and_port = (config.get("stomp", "host"), config.get("stomp", "port", int))
+        Logger.info('Trying to connect to message queue in {0}.'.format(host_and_port))
+        conn = stomp.Connection(host_and_ports=[host_and_port])
         conn.start()
         conn.connect('admin', 'admin', wait=True)
-        conn.send('/queue/OMS.REPLY', str_message, headers={'persistent': 'true'})
+        conn.send('/queue/OMS.STATUS', str_message, headers={'persistent': 'true'})
         conn.disconnect()
 
 

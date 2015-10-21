@@ -170,7 +170,7 @@ class TaskImportRecordIntoNeo4j(luigi.Task, EventEmitter):
     date = luigi.DateParameter()
     hour = luigi.IntParameter()
     tenant = luigi.Parameter()
-    job_id = luigi.Parameter(default='')
+    job_id = luigi.Parameter(default='default_job_id')
 
     def requires(self):
 
@@ -516,7 +516,7 @@ class TaskRunRecommendationWorkflow(luigi.Task, EventEmitter):
     date = luigi.DateParameter()
     tenant = luigi.Parameter()
     job_size = luigi.IntParameter(default=50000)
-    job_id = luigi.Parameter(default='')
+    job_id = luigi.Parameter(default='default_job_id')
 
     def requires(self):
 
@@ -683,7 +683,7 @@ class TaskRunTrimDataWorkflow(luigi.Task, EventEmitter):
     tenant = luigi.Parameter()
     starting_date = luigi.DateParameter()
     period = luigi.IntParameter()
-    job_id = luigi.Parameter(default='')
+    job_id = luigi.Parameter(default='default_job_id')
 
     def output(self):
 
