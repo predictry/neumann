@@ -10,6 +10,8 @@ class CommandMessage:
         self.json = ujson.loads(message)
 
         # Check structure of the Json message
+        if 'jobId' not in self.json:
+            raise ValueError('Invalid Json command. No "jobId" found in: {0}'.format(message))
         if 'type' not in self.json:
             raise ValueError('Invalid Json command. No "type" found in: {0}'.format(message))
         if 'payload' not in self.json:
@@ -26,7 +28,9 @@ class CommandMessage:
             self.task = available_tasks[self.json['type']]
         else:
             raise ValueError('Invalid type for command message: {0}'.format(self.json['type']))
+
         self.task.parse(self.json)
+        self.job_id = self.json['jobId']
 
     def get_type(self):
         return self.json['type']

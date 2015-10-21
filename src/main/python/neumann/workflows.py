@@ -6,8 +6,6 @@ import os
 import shutil
 import tempfile
 import time
-import uuid
-
 import luigi
 import requests
 import dateutil.tz
@@ -20,6 +18,8 @@ from neumann.core.recommend import BatchRecommendationProvider
 from neumann.core.repository import Neo4jRepository
 from neumann.core.transformer import CypherTransformer
 from neumann.utils import config, io
+from neumann.message.event import EventEmitter
+
 
 tempfile.tempdir = os.path.expanduser('/var/neumann/data')
 if not os.path.exists(tempfile.gettempdir()):
@@ -165,11 +165,12 @@ class TaskDownloadRecord(luigi.Task):
             )
 
 
-class TaskImportRecordIntoNeo4j(luigi.Task):
+class TaskImportRecordIntoNeo4j(luigi.Task, EventEmitter):
 
     date = luigi.DateParameter()
     hour = luigi.IntParameter()
     tenant = luigi.Parameter()
+    job_id = luigi.Parameter(default='')
 
     def requires(self):
 
@@ -509,12 +510,13 @@ class TaskStoreRecommendationResults(luigi.Task):
                 writer.writerow([self.tenant, item_id, filename, file_path])
 
 
-class TaskRunRecommendationWorkflow(luigi.Task):
+class TaskRunRecommendationWorkflow(luigi.Task, EventEmitter):
 
     algorithm = luigi.Parameter()
     date = luigi.DateParameter()
     tenant = luigi.Parameter()
     job_size = luigi.IntParameter(default=50000)
+    job_id = luigi.Parameter(default='')
 
     def requires(self):
 
@@ -675,12 +677,13 @@ class TaskRunItemSyncWorkflow(luigi.Task):
         return
 
 
-class TaskRunTrimDataWorkflow(luigi.Task):
+class TaskRunTrimDataWorkflow(luigi.Task, EventEmitter):
 
     date = luigi.DateParameter()
     tenant = luigi.Parameter()
     starting_date = luigi.DateParameter()
     period = luigi.IntParameter()
+    job_id = luigi.Parameter(default='')
 
     def output(self):
 

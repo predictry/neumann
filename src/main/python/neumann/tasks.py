@@ -60,23 +60,24 @@ def taskconfig(task, option=None, fallback=None, type=None):
 
 class ImportRecordTask(ITask):
 
-    def __init__(self, timestamp, tenant):
+    def __init__(self, timestamp, tenant, job_id=''):
         self.timestamp = timestamp
         self.tenant = tenant
+        self.job_id = job_id
 
     def __str__(self):
 
-        return '{0}[timestamp={1}, tenant={2}]'.format(
-            self.__class__.__name__, str(self.timestamp), self.tenant
+        return '{0}[timestamp={1}, tenant={2}, job_id={3}]'.format(
+            self.__class__.__name__, str(self.timestamp), self.tenant, self.job_id
         )
 
     def run(self):
 
-        _import_record_task.delay(timestamp=self.timestamp, tenant=self.tenant)
+        _import_record_task.delay(timestamp=self.timestamp, tenant=self.tenant, job_id=self.job_id)
 
 
 @job('default', connection=_redis_conn, timeout=int(taskconfig('import-record', 'timeout', 1800)))
-def _import_record_task(timestamp, tenant):
+def _import_record_task(timestamp, tenant, job_id=''):
 
     def execute():
 
@@ -85,6 +86,7 @@ def _import_record_task(timestamp, tenant):
         workers = taskconfig('import-record', 'workers', 1)
 
         statements = [sys.executable, filepath, classname,
+                      '--job-id', job_id,
                       '--date', str(timestamp.date()),
                       '--hour', str(timestamp.hour),
                       '--tenant', tenant,
@@ -131,23 +133,25 @@ def _import_record_task(timestamp, tenant):
 
 class ComputeRecommendationTask(ITask):
 
-    def __init__(self, date, tenant, algorithm):
+    def __init__(self, date, tenant, algorithm, job_id=''):
         self.date = date
         self.tenant = tenant
         self.algorithm = algorithm
+        self.job_id = job_id
 
     def run(self):
-        _compute_recommendation_task.delay(date=self.date, tenant=self.tenant, algorithm=self.algorithm)
+        _compute_recommendation_task.delay(date=self.date, tenant=self.tenant, algorithm=self.algorithm,
+                                           job_id=self.job_id)
 
     def __str__(self):
 
-        return '{0}[date={1}, tenant={2}]'.format(
-            self.__class__.__name__, self.date, self.tenant
+        return '{0}[date={1}, tenant={2}, job_id={3}]'.format(
+            self.__class__.__name__, self.date, self.tenant, self.job_id
         )
 
 
 @job('default', connection=_redis_conn, timeout=int(taskconfig('recommend', 'timeout', 3600*2)))
-def _compute_recommendation_task(date, tenant, algorithm):
+def _compute_recommendation_task(date, tenant, algorithm, job_id=''):
     
     def execute():
 
@@ -156,6 +160,7 @@ def _compute_recommendation_task(date, tenant, algorithm):
         workers = taskconfig('recommend', 'workers', 4)
 
         statements = [sys.executable, filepath, classname,
+                      '--job-id', job_id,
                       '--date', str(date),
                       '--tenant', tenant,
                       '--algorithm', algorithm,
@@ -202,26 +207,28 @@ def _compute_recommendation_task(date, tenant, algorithm):
 
 class TrimDataTask(ITask):
 
-    def __init__(self, date, tenant, starting_date, period):
+    def __init__(self, date, tenant, starting_date, period, job_id=''):
         self.date = date
         self.tenant = tenant
         self.starting_date = starting_date
         self.period = period
+        self.job_id = job_id
 
     def run(self):
 
-        _trim_data_task.delay(date=self.date, tenant=self.tenant, starting_date=self.starting_date, period=self.period)
+        _trim_data_task.delay(date=self.date, tenant=self.tenant, starting_date=self.starting_date,
+                              period=self.period, job_id=self.job_id)
 
     def __str__(self):
 
-        return '{0}[date={1}, tenant={2}, startingDate={3}, period={4}]'.format(
+        return '{0}[date={1}, tenant={2}, startingDate={3}, period={4}, job_id={5}]'.format(
             self.__class__.__name__, self.date, self.tenant,
-            self.starting_date, self.period
+            self.starting_date, self.period, self.job_id
         )
 
 
 @job('default', connection=_redis_conn, timeout=3600)
-def _trim_data_task(date, tenant, starting_date, period):
+def _trim_data_task(date, tenant, starting_date, period, job_id=''):
 
     def execute():
 
@@ -230,6 +237,7 @@ def _trim_data_task(date, tenant, starting_date, period):
         workers = taskconfig('trim-data', 'workers', 1)
 
         statements = [sys.executable, filepath, classname,
+                      '--job-id', job_id,
                       '--date', str(date),
                       '--tenant', tenant,
                       '--starting-date', str(starting_date),

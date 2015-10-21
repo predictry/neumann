@@ -7,6 +7,7 @@ class TaskTest(unittest.TestCase):
     def test_trim_data(self):
         trim_data = TrimDataTask()
         valid_payload = {
+            "taskId": "123",
             "type": "trim-data",
             "payload": {
                 "tenant": "tenant1",
@@ -28,6 +29,7 @@ class TaskTest(unittest.TestCase):
     def test_compute_recommendation(self):
         compute_recommendation = ComputeRecommendationTask()
         valid_payload = {
+            "taskId": "123",
             "type": "compute-recommendation",
             "payload": {
                 "tenant": "tenant1",
@@ -48,6 +50,7 @@ class TaskTest(unittest.TestCase):
             }
         }
         invalid_payload = {
+            "taskId": "123",
             "type": "test-recommendation",
             "payload": {
                 "tenant": "tenant1",
@@ -74,6 +77,7 @@ class TaskTest(unittest.TestCase):
     def test_import_record(self):
         import_record = ImportRecordTask()
         valid_payload = {
+            "taskId": "123",
             "type": "import-record",
             "payload": {
                 "tenant": "tenant1",
@@ -87,6 +91,7 @@ class TaskTest(unittest.TestCase):
             }
         }
         invalid_payload = {
+            "taskId": "123",
             "type": "test-recommendation",
             "payload": {
                 "tenant": "tenant1",
@@ -102,6 +107,7 @@ class TaskTest(unittest.TestCase):
     def test_sync_item_store(self):
         sync_item_store = SyncItemStoreTask()
         valid_payload = {
+            "taskId": "123",
             "type": "sync-item-store",
             "payload": {
                 "tenant": "tenant1",
@@ -114,6 +120,7 @@ class TaskTest(unittest.TestCase):
             }
         }
         invalid_payload = {
+            "taskId": "123",
             "type": "test-sync",
             "payload": {
                 "tenant": "tenant1",

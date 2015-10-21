@@ -12,6 +12,7 @@ class CommandMessageTests(unittest.TestCase):
     @patch.object(DataTrimmingService, 'trim')
     def test_trim_data(self, service):
         json_message = '''{
+            "jobId": "123",
             "type": "trim-data",
             "payload": {
                 "tenant": "tenant1",
@@ -35,6 +36,7 @@ class CommandMessageTests(unittest.TestCase):
     @patch.object(RecommendService, 'compute')
     def test_compute_recommendation(self, service):
         json_message = '''{
+            "jobId": "123",
             "type": "compute-recommendation",
             "payload": {
                 "tenant": "tenant1",
@@ -74,6 +76,7 @@ class CommandMessageTests(unittest.TestCase):
     @patch.object(RecordImportService, 'harvest')
     def test_import_record(self, service):
         json_message = '''{
+            "jobId": "123",
             "type": "import-record",
             "payload": {
                 "tenant": "tenant1",
@@ -102,6 +105,7 @@ class CommandMessageTests(unittest.TestCase):
 
     def test_sync_item_store(self):
         json_message = '''{
+            "jobId": "123",
             "type": "sync-item-store",
             "payload": {
                 "tenant": "tenant1",
