@@ -8,9 +8,9 @@ from neumann.utils.logger import Logger
 class RecordImportService(object):
 
     @classmethod
-    def harvest(cls, timestamp, tenant):
+    def harvest(cls, timestamp, tenant, job_id='default_job_id'):
 
-        job = ImportRecordTask(timestamp=timestamp, tenant=tenant)
+        job = ImportRecordTask(timestamp=timestamp, tenant=tenant, job_id=job_id)
 
         # queue task
         job.run()
@@ -24,9 +24,9 @@ class RecordImportService(object):
 class RecommendService(object):
 
     @classmethod
-    def compute(cls, date, tenant, algorithm):
+    def compute(cls, date, tenant, algorithm, job_id='default_job_id'):
 
-        job = ComputeRecommendationTask(date=date, tenant=tenant, algorithm=algorithm)
+        job = ComputeRecommendationTask(date=date, tenant=tenant, algorithm=algorithm, job_id=job_id)
 
         job.run()
 
@@ -38,9 +38,9 @@ class RecommendService(object):
 class DataTrimmingService(object):
 
     @classmethod
-    def trim(cls, date, tenant, starting_date, period):
+    def trim(cls, date, tenant, starting_date, period, job_id='default_job_id'):
 
-        job = TrimDataTask(date=date, tenant=tenant, starting_date=starting_date, period=period)
+        job = TrimDataTask(date=date, tenant=tenant, starting_date=starting_date, period=period, job_id=job_id)
 
         job.run()
 

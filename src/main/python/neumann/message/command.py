@@ -36,7 +36,7 @@ class CommandMessage:
         return self.json['type']
 
     def execute(self):
-        self.task.execute()
+        self.task.execute(self.job_id)
 
 
 class CommandEventListener(stomp.ConnectionListener):

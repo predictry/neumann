@@ -56,10 +56,10 @@ class TrimDataTask(Task):
     def can_parse(self, payload):
         return payload['type'] == 'trim-data'
 
-    def execute(self):
+    def execute(self, job_id='default_job_id'):
         services.DataTrimmingService.trim(date=self.get_payload('date'), tenant=self.get_payload('tenant'),
                                           starting_date=self.get_payload('startingDate'),
-                                          period=self.get_payload('period'))
+                                          period=self.get_payload('period'), job_id=job_id)
 
 
 class ComputeRecommendationTask(Task):
@@ -77,9 +77,9 @@ class ComputeRecommendationTask(Task):
             self.output = datasource
             self.output.parse(payload['payload']['output'])
 
-    def execute(self):
+    def execute(self, job_id='default_job_id'):
         services.RecommendService.compute(date=self.get_payload('date'), tenant=self.get_payload('tenant'),
-                                          algorithm=self.get_payload('algorithm')['name'])
+                                          algorithm=self.get_payload('algorithm')['name'], job_id=job_id)
 
 
 class ImportRecordTask(Task):
@@ -97,9 +97,9 @@ class ImportRecordTask(Task):
             self.input = datasource
             self.input.parse(payload['payload']['input'])
 
-    def execute(self):
+    def execute(self, job_id='default_job_id'):
         timestamp = datetime.strptime(self.get_payload('date'), '%Y-%m-%d') + timedelta(hours=self.get_payload('hour'))
-        services.RecordImportService.harvest(timestamp=timestamp, tenant=self.get_payload('tenant'))
+        services.RecordImportService.harvest(timestamp=timestamp, tenant=self.get_payload('tenant'), job_id=job_id)
 
 
 class SyncItemStoreTask(Task):
@@ -117,6 +117,6 @@ class SyncItemStoreTask(Task):
             self.target = datasource
             self.target.parse(payload['payload']['target'])
 
-    def execute(self):
+    def execute(self, job_id='default_job_id'):
         # Do we still need this?
         pass
