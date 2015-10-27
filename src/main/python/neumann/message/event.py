@@ -28,7 +28,7 @@ def task_started(task):
             "serviceProvider": "NEUMANN",
             "jobId": task.job_id,
             "event": "START",
-            "time": time.strftime('%Y-%M-%dT%H-%M-%S')
+            "time": time.strftime('%Y-%m-%dT%H:%M:%S')
         })
 
 
@@ -40,7 +40,7 @@ def task_success(task):
             "serviceProvider": "NEUMANN",
             "jobId": task.job_id,
             "event": "SUCCESS",
-            "time": time.strftime('%Y-%M-%dT%H-%M-%S')
+            "time": time.strftime('%Y-%m-%dT%H:%M:%S')
         })
 
 
@@ -54,7 +54,7 @@ def task_success(task, ex):
             "jobId": task.job_id,
             "event": "FAILURE",
             "reason": str(ex),
-            "time": time.strftime('%Y-%M-%dT%H-%M-%S')
+            "time": time.strftime('%Y-%m-%dT%H:%M:%S')
         })
 
 
