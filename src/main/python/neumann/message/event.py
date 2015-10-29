@@ -44,6 +44,18 @@ def task_success(task):
         })
 
 
+@luigi.Task.event_handler(luigi.event.Event.DEPENDENCY_PRESENT)
+def task_present(task):
+    if isinstance(task, EventEmitter):
+        Logger.info("[LUIGI EVENT] Dependency for task {0} is present".format(task))
+        task.send({
+            "serviceProvider": "NEUMANN",
+            "jobId": task.job_id,
+            "event": "SUCCESS",
+            "time": time.strftime('%Y-%m-%dT%H:%M:%S')
+        })
+
+
 @luigi.Task.event_handler(luigi.event.Event.FAILURE)
 def task_success(task, ex):
     if isinstance(task, EventEmitter):
