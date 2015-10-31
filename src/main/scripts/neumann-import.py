@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(description='This script will tell Neumann to i
 parser.add_argument('start_date', help='Starting date of data to import')
 parser.add_argument('end_date', help='Ending date of data to import')
 parser.add_argument('tenant', help='Tenant id to import')
+parser.add_argument('--local-scheduler', action='store_const', const='true')
 args = parser.parse_args()
 
 start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d')
@@ -19,6 +20,8 @@ while date < end_date:
         timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=2)
         filepath = os.path.abspath(workflows.__file__)
         classname = workflows.TaskImportRecordIntoNeo4j.__name__
+        # noinspection PyArgumentList
         task = workflows.TaskImportRecordIntoNeo4j(date=date.strftime("%Y-%m-%d"), hour=hour, tenant=args.tenant)
-        luigi.build([task], local_scheduler=True)
+        local_scheduler = 'local-scheduler' in args
+        luigi.build([task], local_scheduler=args.local_scheduler)
     date += datetime.timedelta(days=1)
