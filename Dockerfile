@@ -63,7 +63,6 @@ ADD uwsgi_params /etc/neumann/
 ADD config.ini /etc/neumann/
 ADD tasks.ini /etc/neumann/
 ADD logging.json /etc/neumann/
-ADD tenants.json /etc/neumann/
 ADD supervisor-app.conf /etc/supervisor/conf.d/
 ADD nginx-app.conf /etc/nginx/sites-enabled/
 ADD boto.cfg /etc/neumann/
