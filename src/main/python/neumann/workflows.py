@@ -514,6 +514,7 @@ class TaskRunRecommendationWorkflow(luigi.Task, EventEmitter):
 
     algorithm = luigi.Parameter()
     date = luigi.DateParameter()
+    hour = luigi.IntParameter(default=datetime.datetime.now().time().hour)
     tenant = luigi.Parameter()
     job_size = luigi.IntParameter(default=50000)
     job_id = luigi.Parameter(default='default_job_id')
@@ -534,8 +535,9 @@ class TaskRunRecommendationWorkflow(luigi.Task, EventEmitter):
 
     def output(self):
 
-        file_name = "{0}_{1}_{2}_{3}.{4}".format(self.date.__str__(), self.__class__.__name__, self.tenant,
-                                                 self.algorithm, CSV_EXTENSION)
+        file_name = "{0}_{1}_{2}_{3}_{4}.{5}".format(self.date.__str__(), self.hour,
+                                                self.__class__.__name__, self.tenant,
+                                                self.algorithm, CSV_EXTENSION)
 
         file_path = os.path.join(tempfile.gettempdir(), 'tasks', self.__class__.__name__, file_name)
 
