@@ -484,10 +484,11 @@ class TaskStoreRecommendationResults(luigi.Task):
 
         aws.S3.sync(data_dir, s3bucket, s3path)
 
-        if self.tenant in config.get("output", "targettenants").split():
-            s3copy = os.path.join('/var/neumann', config.get('output', 'dir'), s3path)
-            Logger.info("Copying recommendations from {0} to {1}".format(data_dir, s3copy))
-            copy_tree(data_dir, s3copy)
+        # Disable local copy since neumann is moved to a separate server
+        # if self.tenant in config.get("output", "targettenants").split():
+        #     s3copy = os.path.join('/var/neumann', config.get('output', 'dir'), s3path)
+        #     Logger.info("Copying recommendations from {0} to {1}".format(data_dir, s3copy))
+        #     copy_tree(data_dir, s3copy)
 
         end = time.time()
 

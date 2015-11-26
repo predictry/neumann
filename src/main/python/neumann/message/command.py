@@ -10,6 +10,8 @@ class CommandMessage:
         self.json = ujson.loads(message)
 
         # Check structure of the Json message
+        if self.json is None:
+            return
         if 'jobId' not in self.json:
             raise ValueError('Invalid Json command. No "jobId" found in: {0}'.format(message))
         if 'type' not in self.json:
