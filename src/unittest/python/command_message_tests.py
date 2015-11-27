@@ -1,9 +1,10 @@
 import unittest
+import datetime
 from neumann.message.command import CommandMessage
 from neumann.message.datasource import S3DataSource, TapirusDataSource
 from neumann.message.task import TrimDataTask, ComputeRecommendationTask, ImportRecordTask, SyncItemStoreTask
 from neumann.services import DataTrimmingService, RecommendService, RecordImportService
-from unittest.mock import patch
+from unittest.mock import patch, call
 
 
 # noinspection PyUnresolvedReferences
@@ -102,6 +103,36 @@ class CommandMessageTests(unittest.TestCase):
         # Test run
         command.execute()
         service.assert_called_one_with(timestamp='2015-12-01-10', tenant='tenant1')
+
+    @patch.object(RecordImportService, 'harvest')
+    def test_import_record_day(self, service):
+        json_message = '''{
+            "jobId": "123",
+            "type": "import-record",
+            "payload": {
+                "tenant": "tenant1",
+                "date": "2015-12-01",
+                "input": {
+                    "type": "tapirus",
+                    "host": "192.168.0.100",
+                    "port": 1999
+                }
+            }
+        }'''
+        command = CommandMessage(json_message)
+        self.assertEqual(ImportRecordTask, command.task.__class__)
+        self.assertEqual('import-record', command.get_type())
+        self.assertEqual('tenant1', command.task.tenant)
+        self.assertEqual('2015-12-01', command.task.date)
+        self.assertEqual(TapirusDataSource, command.task.input.__class__)
+        self.assertEqual('192.168.0.100', command.task.input.host)
+        self.assertEqual(1999, command.task.input.port)
+
+        # Test run
+        command.execute()
+        expected_args = [call(job_id='123', timestamp=datetime.datetime(2015, 12, 1, x, 0), tenant='tenant1')
+                         for x in range(0, 24)]
+        self.assertEqual(expected_args, service.call_args_list)
 
     def test_sync_item_store(self):
         json_message = '''{

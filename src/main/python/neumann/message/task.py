@@ -9,6 +9,9 @@ class Task(metaclass=ABCMeta):
     ``Task`` is a parent abstract class for all available tasks.
     """
 
+    def __init__(self):
+        self.payload = {}
+
     @abstractmethod
     def required_fields(self):
         """:rtype: list[str]"""
@@ -18,7 +21,8 @@ class Task(metaclass=ABCMeta):
     def execute(self):
         pass
 
-    def available_datasources(self):
+    @staticmethod
+    def available_datasources():
         return {
             's3': S3DataSource,
             'http': HttpDataSource,
@@ -85,7 +89,7 @@ class ComputeRecommendationTask(Task):
 class ImportRecordTask(Task):
 
     def required_fields(self):
-        return ['tenant', 'date', 'hour', 'input']
+        return ['tenant', 'date', 'input']
 
     def can_parse(self, payload):
         return payload['type'] == 'import-record'
@@ -98,8 +102,15 @@ class ImportRecordTask(Task):
             self.input.parse(payload['payload']['input'])
 
     def execute(self, job_id='default_job_id'):
-        timestamp = datetime.strptime(self.get_payload('date'), '%Y-%m-%d') + timedelta(hours=self.get_payload('hour'))
-        services.RecordImportService.harvest(timestamp=timestamp, tenant=self.get_payload('tenant'), job_id=job_id)
+        if 'hour' in self.payload['payload']:
+            timestamp = datetime.strptime(self.get_payload('date'), '%Y-%m-%d') + \
+                        timedelta(hours=self.get_payload('hour'))
+            services.RecordImportService.harvest(timestamp=timestamp, tenant=self.get_payload('tenant'), job_id=job_id)
+        else:
+            for hour in range(0, 24):
+                timestamp = datetime.strptime(self.get_payload('date'), '%Y-%m-%d') + timedelta(hours=hour)
+                services.RecordImportService.harvest(timestamp=timestamp, tenant=self.get_payload('tenant'),
+                                                     job_id=job_id)
 
 
 class SyncItemStoreTask(Task):
