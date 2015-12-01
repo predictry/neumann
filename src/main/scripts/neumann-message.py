@@ -14,7 +14,7 @@ def main():
     conn.set_listener('', CommandEventListener())
     conn.start()
     conn.connect('admin', 'admin', wait=True)
-    conn.subscribe('/queue/NEUMANN.COMMAND', 1)
+    conn.subscribe('/queue/NEUMANN_EC2.COMMAND', 1)
     Logger.info('Message script has been subscribed to queue.')
     while True:
         time.sleep(1)
