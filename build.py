@@ -65,10 +65,10 @@ def _docker_run(project, logger):
     subprocess.call(["docker", "rm", "-f", "neumann-{0}-{1}".format(profile, project.version)])
 
     # Running new container
-    data_dir = project.expand("$dir_target/tmp/data")
+    data_dir = project.expand("$basedir/$dir_target/tmp/data")
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-    s3copy_dir = project.expand("$dir_target/tmp/s3copy")
+    s3copy_dir = project.expand("$basedir/$dir_target/tmp/s3copy")
     if not os.path.exists(s3copy_dir):
         os.makedirs(s3copy_dir)
     logger.info("Executing docker run with data_dir [{0}] and s3copy_dir [{1}]".format(data_dir, s3copy_dir))
