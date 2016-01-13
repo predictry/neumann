@@ -1,3 +1,5 @@
+import requests
+
 from collections import Counter
 from operator import itemgetter
 
@@ -218,32 +220,30 @@ class BatchRecommendationProvider(object):
 
     @classmethod
     def compute(cls, tenant, rtype, items, filters=None, limit=None, fields=None):
-
-        queries = []
-        for item_id in items:
-
-            query = _generate(tenant, rtype, item_id, filters, limit, fields)
-            queries.append(query)
-
-        bresults = neo4j.run_batch_query(queries)
         results = []
-
-        for output in bresults:
-
-            if rtype in ["oivt", "oipt", "duo", "oiv", "oip", "anon-oiv", "anon-oip"]:
-
-                items = []
-                count = sum([record[1] for record in output])
-
-                for record in output:
-                    item = dict(id=record[0])
-                    item["frequency"] = float("{0:.2f}".format(record[1]/float(count)))
-                    items.append(item)
-
-                results.append(items)
-
-            else:
-
-                raise errors.UnknownRecommendationOption("Recommendation option `{0}` isn't recognized".format(rtype))
-
+        if rtype == 'similiar':
+            for item_id in items:
+                r = requests.get('http://fisher.predictry.com:8090/fisher/items/{0}/related/{1}'.format(tenant, item_id))
+                result = r.json()
+                result_items = []
+                for result_item in result['items']:
+                    result_items.append({'frequency': 1.0, 'id': result_item});
+                results.append(result_items)
+        else:
+            queries = []
+            for item_id in items:
+                query = _generate(tenant, rtype, item_id, filters, limit, fields)
+                queries.append(query)
+            bresults = neo4j.run_batch_query(queries)
+            for output in bresults:
+                if rtype in ["oivt", "oipt", "duo", "oiv", "oip", "anon-oiv", "anon-oip"]:
+                    items = []
+                    count = sum([record[1] for record in output])
+                    for record in output:
+                        item = dict(id=record[0])
+                        item["frequency"] = float("{0:.2f}".format(record[1]/float(count)))
+                        items.append(item)
+                    results.append(items)
+                else:
+                    raise errors.UnknownRecommendationOption("Recommendation option `{0}` isn't recognized".format(rtype))
         return results

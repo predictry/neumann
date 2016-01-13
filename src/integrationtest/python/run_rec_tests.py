@@ -162,6 +162,31 @@ class LuigiRunRecommendationTask(unittest.TestCase):
             for code in expectedLine[4]:
                 self.assertTrue(code in resultLine[4])
 
+    def test_compute_recommendation_similiar(self):
+        main_task = TaskComputeRecommendationsMocked(date='2015-09-01', tenant='SOUKAIMY', start=0, end=10, id=1,
+                                                     algorithm='similiar')
+        luigi.build([main_task], local_scheduler=True)
+
+        # Check the result
+        sio = io.StringIO(MockTarget.fs.get_data('/tmp/compute.json').decode('utf-8'))
+        result = list(csv.reader(sio))
+        expected = [["SOUKAIMY", "SECM-S0001_00322", "10", "similiar"],
+                    ["SOUKAIMY", "SECM-S0001_00706", "10", "similiar"],
+                    ["SOUKAIMY", "SECM-S0002_00030", "10", "similiar"],
+                    ["SOUKAIMY", "SECM-S0002_00032", "10", "similiar"],
+                    ["SOUKAIMY", "SECM-S0002_00105", "10", "similiar"],
+                    ["SOUKAIMY", "SECM-S0005_00119", "10", "similiar"],
+                    ["SOUKAIMY", "SECM-S0007_00019", "10", "similiar"],
+                    ["SOUKAIMY", "SECM-S0008_00014", "10", "similiar"],
+                    ["SOUKAIMY", "SECM-S0012_00025",  "0", "similiar"],
+                    ["SOUKAIMY", "SECM-S0012_00137", "10", "similiar"]]
+        self.assertEqual(10, len(result[1:]))
+        for expectedLine, resultLine in zip(expected, result[1:]):
+            self.assertEqual(resultLine[0], expectedLine[0])
+            self.assertEqual(resultLine[1], expectedLine[1])
+            self.assertEqual(resultLine[2], expectedLine[2])
+            self.assertEqual(resultLine[3], expectedLine[3])
+
     def test_compute_recommendation_with_blacklist(self):
         main_task = TaskComputeRecommendationsMocked(date='2015-09-01', tenant='SOUKAIMY', start=0, end=10, id=1,
                                                      algorithm='duo', blacklist='["SECM-S0002_00032", "SECM-S0002_00030"]')

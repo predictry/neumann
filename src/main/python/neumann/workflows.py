@@ -387,7 +387,9 @@ class TaskComputeRecommendations(luigi.Task):
                             items.append(whitelist_entry['item'])
 
                     # get item ids
-                    items.extend(set([item['id'] for item in results[i] if item['id'] not in blacklist_values]))
+                    if results[i]:
+                        items.extend([item['id'] for item in results[i] if item['id'] not in blacklist_values])
+                        items = set(items)
 
                     # register computation
                     writer.writerow([tenant, candidates[i], len(items),
@@ -522,7 +524,8 @@ class TaskStoreRecommendationResults(luigi.Task):
                 _, item_id, _, _, _ = row
                 filename = '.'.join([item_id, JSON_EXTENSION])
                 file_path = os.path.join(data_dir, filename)
-                os.remove(file_path)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
                 writer.writerow([self.tenant, item_id, filename, file_path])
 
 
