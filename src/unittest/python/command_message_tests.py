@@ -8,7 +8,7 @@ from unittest.mock import patch, call
 
 
 # noinspection PyUnresolvedReferences
-class CommandMessageTests(unittest.TestCase):
+class CommandMessageTest(unittest.TestCase):
 
     @patch.object(DataTrimmingService, 'trim')
     def test_trim_data(self, service):
@@ -32,7 +32,8 @@ class CommandMessageTests(unittest.TestCase):
 
         # Test run
         command.execute()
-        service.assert_called_one_with(date='2015-12-01', tenant='tenant1', startingDate='2015-11-01', period=30)
+        self.assertEqual(service.call_count, 1)
+        self.assertEqual(call(date='2015-12-01', tenant='tenant1', starting_date='2015-11-01', period=30, job_id='123'), service.mock_calls[0])
 
     @patch.object(RecommendService, 'compute')
     def test_compute_recommendation(self, service):
@@ -72,7 +73,59 @@ class CommandMessageTests(unittest.TestCase):
 
         # Test run
         command.execute()
-        service.assert_called_one_with(date='2015-12-01', tenant='tenant1', algorithm='algo-1')
+        self.assertEqual(service.call_count, 1)
+        self.assertEqual(call(date='2015-12-01', tenant='tenant1', algorithm='algo-1', whitelist=None, blacklist=None, job_id='123'), service.mock_calls[0])
+
+    @patch.object(RecommendService, 'compute')
+    def test_compute_recommendation_with_blacklist(self, service):
+        json_message = '''{
+            "jobId": "123",
+            "type": "compute-recommendation",
+            "payload": {
+                "tenant": "tenant1",
+                "date": "2015-12-01",
+                "algorithm": {
+                    "name": "algo-1",
+                    "params": {
+                        "param1": "value1",
+                        "param2": "value2"
+                    }
+                },
+                "output": {
+                    "type": "s3",
+                    "bucket": "exercises",
+                    "prefix": "photos/2006/January/sample.jpg",
+                    "region": "eu-west-1"
+                },
+                "blacklist": ["item1", "item2", "item3"],
+                "whitelist": [
+                    { "item": "item4", "prob": 1.0 },
+                    { "item": "item5", "prob": 0.7 },
+                    { "item": "item6", "prob": 0.1 }
+                ]
+            }
+        }'''
+        command = CommandMessage(json_message)
+        self.assertEqual(ComputeRecommendationTask, command.task.__class__)
+        self.assertEqual('compute-recommendation', command.get_type())
+        self.assertEqual('tenant1', command.task.tenant)
+        self.assertEqual('2015-12-01', command.task.date)
+        self.assertEqual('algo-1', command.task.algorithm['name'])
+        self.assertEqual('value1', command.task.algorithm['params']['param1'])
+        self.assertEqual('value2', command.task.algorithm['params']['param2'])
+        self.assertEqual(S3DataSource, command.task.output.__class__)
+        self.assertEqual('exercises', command.task.output.bucket)
+        self.assertEqual('photos/2006/January/sample.jpg', command.task.output.prefix)
+        self.assertEqual('eu-west-1', command.task.output.region)
+
+        # Test run
+        command.execute()
+        self.assertEqual(service.call_count, 1)
+        self.assertEqual(call(date='2015-12-01', tenant='tenant1', algorithm='algo-1', job_id='123',
+                              whitelist=[{'item': 'item4', 'prob': 1.0},
+                                         {'item': 'item5', 'prob': 0.7000000000000001},
+                                         {'item': 'item6', 'prob': 0.1}],
+                              blacklist=['item1', 'item2', 'item3']), service.mock_calls[0])
 
     @patch.object(RecordImportService, 'harvest')
     def test_import_record(self, service):
@@ -102,7 +155,8 @@ class CommandMessageTests(unittest.TestCase):
 
         # Test run
         command.execute()
-        service.assert_called_one_with(timestamp='2015-12-01-10', tenant='tenant1')
+        self.assertEqual(service.call_count, 1)
+        self.assertEqual(call(timestamp=datetime.datetime(2015,12,1,10,0), tenant='tenant1', job_id='123'), service.mock_calls[0])
 
     @patch.object(RecordImportService, 'harvest')
     def test_import_record_day(self, service):

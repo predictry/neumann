@@ -10,7 +10,8 @@ import luigi
 import requests
 import dateutil.tz
 import dateutil.parser
-from distutils.dir_util import copy_tree
+import ujson
+import random
 from neumann import Logger
 from neumann.core import constants, aws, errors, parser
 from neumann.core.db import neo4j
@@ -327,6 +328,8 @@ class TaskComputeRecommendations(luigi.Task):
     start = luigi.IntParameter()
     end = luigi.IntParameter()
     id = luigi.IntParameter()
+    whitelist = luigi.Parameter(default=None)
+    blacklist = luigi.Parameter(default=None)
 
     def requires(self):
 
@@ -346,6 +349,8 @@ class TaskComputeRecommendations(luigi.Task):
 
         task = "`{0}`::`{1}`::`{2}`::`{3}`".format(self.__class__.__name__, self.tenant, self.algorithm, self.id)
         batch_size = 50
+        blacklist_values = ujson.decode(self.blacklist) if self.blacklist else []
+        whitelist_values = ujson.decode(self.whitelist) if self.whitelist else []
 
         # TODO: read options from Task configuration
 
@@ -374,8 +379,15 @@ class TaskComputeRecommendations(luigi.Task):
 
                 for i in range(0, len(candidates)):
 
+                    items = []
+
+                    # add whitelist
+                    for whitelist_entry in whitelist_values:
+                        if random.random() < whitelist_entry['prob']:
+                            items.append(whitelist_entry['item'])
+
                     # get item ids
-                    items = list(set([item['id'] for item in results[i]]))
+                    items.extend(set([item['id'] for item in results[i] if item['id'] not in blacklist_values]))
 
                     # register computation
                     writer.writerow([tenant, candidates[i], len(items),
@@ -409,11 +421,14 @@ class TaskStoreRecommendationResults(luigi.Task):
     start = luigi.IntParameter()
     end = luigi.IntParameter()
     id = luigi.IntParameter()
+    whitelist = luigi.Parameter(default=None)
+    blacklist = luigi.Parameter(default=None)
 
     def requires(self):
 
         return TaskComputeRecommendations(date=self.date, tenant=self.tenant, algorithm=self.algorithm,
-                                          id=self.id, start=self.start, end=self.end)
+                                          id=self.id, start=self.start, end=self.end, whitelist=self.whitelist,
+                                          blacklist=self.blacklist)
 
     def output(self):
 
@@ -519,6 +534,8 @@ class TaskRunRecommendationWorkflow(luigi.Task, EventEmitter):
     tenant = luigi.Parameter()
     job_size = luigi.IntParameter(default=50000)
     job_id = luigi.Parameter(default='default_job_id')
+    whitelist = luigi.Parameter(default=None)
+    blacklist = luigi.Parameter(default=None)
 
     def requires(self):
 
@@ -531,7 +548,7 @@ class TaskRunRecommendationWorkflow(luigi.Task, EventEmitter):
             c += 1
 
         return [TaskStoreRecommendationResults(date=self.date, tenant=self.tenant, algorithm=self.algorithm, id=r[0],
-                                               start=r[1], end=r[2])
+                                               start=r[1], end=r[2], whitelist=self.whitelist, blacklist=self.blacklist)
                 for r in jobs]
 
     def output(self):

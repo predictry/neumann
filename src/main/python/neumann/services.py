@@ -24,9 +24,10 @@ class RecordImportService(object):
 class RecommendService(object):
 
     @classmethod
-    def compute(cls, date, tenant, algorithm, job_id='default_job_id'):
+    def compute(cls, date, tenant, algorithm, job_id='default_job_id', whitelist=None, blacklist=None):
 
-        job = ComputeRecommendationTask(date=date, tenant=tenant, algorithm=algorithm, job_id=job_id)
+        job = ComputeRecommendationTask(date=date, tenant=tenant, algorithm=algorithm, job_id=job_id,
+                                        whitelist=whitelist, blacklist=blacklist)
 
         job.run()
 

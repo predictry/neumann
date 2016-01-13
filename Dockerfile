@@ -51,7 +51,7 @@ RUN chown neumann /var/neumann
 WORKDIR /home/neumann
 ADD requirements.txt /home/neumann/
 RUN pip3 install -r requirements.txt
-ENV NEUMANN_VERSION 0.3
+ENV NEUMANN_VERSION 0.4
 ADD neumann-$NEUMANN_VERSION.tar.gz /home/neumann
 WORKDIR /home/neumann/neumann-$NEUMANN_VERSION
 RUN python3 setup.py install

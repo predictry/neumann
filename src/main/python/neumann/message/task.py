@@ -40,6 +40,9 @@ class Task(metaclass=ABCMeta):
     def can_parse(self, payload):
         return False
 
+    def has_payload_attr(self, attr):
+        return attr in self.payload['payload']
+
     def __getattr__(self, attr):
         if attr == 'type':
             return self.payload['type']
@@ -83,7 +86,9 @@ class ComputeRecommendationTask(Task):
 
     def execute(self, job_id='default_job_id'):
         services.RecommendService.compute(date=self.get_payload('date'), tenant=self.get_payload('tenant'),
-                                          algorithm=self.get_payload('algorithm')['name'], job_id=job_id)
+                                          algorithm=self.get_payload('algorithm')['name'], job_id=job_id,
+                                          whitelist=self.whitelist if self.has_payload_attr('whitelist') else None,
+                                          blacklist=self.blacklist if self.has_payload_attr('blacklist') else None)
 
 
 class ImportRecordTask(Task):

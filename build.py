@@ -18,7 +18,7 @@ description = "Neumann is Neo4j recommendation generator"
 authors = [Author("guilherme", "guilherme@vventures.asia"),
            Author("jocki", "jocki@vventures.asia")]
 url = "https://github.com/predictry/neumann"
-version = "0.3"
+version = "0.4"
 
 
 def _docker_build(project, logger):

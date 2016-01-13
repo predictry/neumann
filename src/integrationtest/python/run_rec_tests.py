@@ -162,6 +162,87 @@ class LuigiRunRecommendationTask(unittest.TestCase):
             for code in expectedLine[4]:
                 self.assertTrue(code in resultLine[4])
 
+    def test_compute_recommendation_with_blacklist(self):
+        main_task = TaskComputeRecommendationsMocked(date='2015-09-01', tenant='SOUKAIMY', start=0, end=10, id=1,
+                                                     algorithm='duo', blacklist='["SECM-S0002_00032", "SECM-S0002_00030"]')
+        luigi.build([main_task], local_scheduler=True)
+
+        # Check the result
+        sio = io.StringIO(MockTarget.fs.get_data('/tmp/compute.json').decode('utf-8'))
+        result = list(csv.reader(sio))
+        expected = [["SOUKAIMY", "SECM-S0001_00322", "1", "duo", "SECM-S0001_00706"],
+                    ["SOUKAIMY", "SECM-S0001_00706", "1", "duo", "SECM-S0001_00322"],
+                    ["SOUKAIMY", "SECM-S0002_00030", "1", "duo", "SECM-S0002_00105"],
+                    ["SOUKAIMY", "SECM-S0002_00032", "1", "duo", "SECM-S0002_00105"],
+                    ["SOUKAIMY", "SECM-S0002_00105", "0", "duo", ""],
+                    ["SOUKAIMY", "SECM-S0005_00119", "0", "duo", ""],
+                    ["SOUKAIMY", "SECM-S0007_00019", "0", "duo", ""],
+                    ["SOUKAIMY", "SECM-S0008_00014", "0", "duo", ""],
+                    ["SOUKAIMY", "SECM-S0012_00025", "0", "duo", ""],
+                    ["SOUKAIMY", "SECM-S0012_00137", "0", "duo", ""]]
+        self.assertEqual(10, len(result[1:]))
+        for expectedLine, resultLine in zip(expected, result[1:]):
+            self.assertEqual(resultLine[0], expectedLine[0])
+            self.assertEqual(resultLine[1], expectedLine[1])
+            self.assertEqual(resultLine[2], expectedLine[2])
+            self.assertEqual(resultLine[3], expectedLine[3])
+            self.assertEqual(resultLine[4], expectedLine[4])
+
+    def test_compute_recommendation_with_whitelist(self):
+        main_task = TaskComputeRecommendationsMocked(date='2015-09-01', tenant='SOUKAIMY', start=0, end=10, id=1,
+                                                     algorithm='duo', whitelist='[{"item": "SECM-NEW", "prob": 1.0}]')
+        luigi.build([main_task], local_scheduler=True)
+
+        # Check the result
+        sio = io.StringIO(MockTarget.fs.get_data('/tmp/compute.json').decode('utf-8'))
+        result = list(csv.reader(sio))
+        expected = [["SOUKAIMY", "SECM-S0001_00322", "2", "duo", ["SECM-NEW", "SECM-S0001_00706"]],
+                    ["SOUKAIMY", "SECM-S0001_00706", "2", "duo", ["SECM-NEW", "SECM-S0001_00322"]],
+                    ["SOUKAIMY", "SECM-S0002_00030", "3", "duo", ["SECM-NEW", "SECM-S0002_00032", "SECM-S0002_00105"]],
+                    ["SOUKAIMY", "SECM-S0002_00032", "3", "duo", ["SECM-NEW", "SECM-S0002_00105", "SECM-S0002_00030"]],
+                    ["SOUKAIMY", "SECM-S0002_00105", "3", "duo", ["SECM-NEW", "SECM-S0002_00032", "SECM-S0002_00030"]],
+                    ["SOUKAIMY", "SECM-S0005_00119", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0007_00019", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0008_00014", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0012_00025", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0012_00137", "1", "duo", ["SECM-NEW"]]]
+        self.assertEqual(10, len(result[1:]))
+        for expectedLine, resultLine in zip(expected, result[1:]):
+            self.assertEqual(resultLine[0], expectedLine[0])
+            self.assertEqual(resultLine[1], expectedLine[1])
+            self.assertEqual(resultLine[2], expectedLine[2])
+            self.assertEqual(resultLine[3], expectedLine[3])
+            for code in expectedLine[4]:
+                self.assertTrue(code in resultLine[4])
+
+    def test_compute_recommendation_with_blacklist_and_whitelist(self):
+        main_task = TaskComputeRecommendationsMocked(date='2015-09-01', tenant='SOUKAIMY', start=0, end=10, id=1,
+                                                     algorithm='duo', blacklist='["SECM-S0002_00032", "SECM-S0002_00030"]',
+                                                     whitelist='[{"item": "SECM-NEW", "prob": 1.0}]')
+        luigi.build([main_task], local_scheduler=True)
+
+        # Check the result
+        sio = io.StringIO(MockTarget.fs.get_data('/tmp/compute.json').decode('utf-8'))
+        result = list(csv.reader(sio))
+        expected = [["SOUKAIMY", "SECM-S0001_00322", "2", "duo", ["SECM-NEW", "SECM-S0001_00706"]],
+                    ["SOUKAIMY", "SECM-S0001_00706", "2", "duo", ["SECM-NEW", "SECM-S0001_00322"]],
+                    ["SOUKAIMY", "SECM-S0002_00030", "2", "duo", ["SECM-NEW", "SECM-S0002_00105"]],
+                    ["SOUKAIMY", "SECM-S0002_00032", "2", "duo", ["SECM-NEW", "SECM-S0002_00105"]],
+                    ["SOUKAIMY", "SECM-S0002_00105", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0005_00119", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0007_00019", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0008_00014", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0012_00025", "1", "duo", ["SECM-NEW"]],
+                    ["SOUKAIMY", "SECM-S0012_00137", "1", "duo", ["SECM-NEW"]]]
+        self.assertEqual(10, len(result[1:]))
+        for expectedLine, resultLine in zip(expected, result[1:]):
+            self.assertEqual(resultLine[0], expectedLine[0])
+            self.assertEqual(resultLine[1], expectedLine[1])
+            self.assertEqual(resultLine[2], expectedLine[2])
+            self.assertEqual(resultLine[3], expectedLine[3])
+            for code in expectedLine[4]:
+                self.assertTrue(code in resultLine[4])
+
     @patch('neumann.core.aws.S3')
     def test_store_recommendation(self, s3):
         config.config.set('output', 'targettenants', 'SOUKAIMY')
@@ -223,7 +304,7 @@ class LuigiRunRecommendationTask(unittest.TestCase):
         self.assertEqual(2, repo_get_item_count.call_count)
         self.assertEqual(2, mocked_dependencies.call_count)
         mocked_dependencies.assert_any_call(id=1, start=0, end=10, date='2015-09-01', tenant='SOUKAIMY',
-                                            algorithm='duo')
+                                            algorithm='duo', blacklist=None, whitelist=None)
 
     # noinspection PyUnresolvedReferences
     @patch('neumann.workflows.TaskStoreRecommendationResults')
@@ -239,9 +320,9 @@ class LuigiRunRecommendationTask(unittest.TestCase):
         self.assertEqual(2, repo_get_item_count.call_count)
         self.assertEqual(4, mocked_dependencies.call_count)
         mocked_dependencies.assert_any_call(id=1, start=0, end=10, date='2015-09-01', tenant='SOUKAIMY',
-                                            algorithm='duo')
+                                            algorithm='duo', blacklist=None, whitelist=None)
         mocked_dependencies.assert_any_call(id=2, start=10, end=20, date='2015-09-01', tenant='SOUKAIMY',
-                                            algorithm='duo')
+                                            algorithm='duo', blacklist=None, whitelist=None)
 
     # noinspection PyUnresolvedReferences
     @patch('neumann.workflows.TaskStoreRecommendationResults')
@@ -257,8 +338,8 @@ class LuigiRunRecommendationTask(unittest.TestCase):
         self.assertEqual(2, repo_get_item_count.call_count)
         self.assertEqual(6, mocked_dependencies.call_count)
         mocked_dependencies.assert_any_call(id=1, start=0, end=10, date='2015-09-01', tenant='SOUKAIMY',
-                                            algorithm='duo')
+                                            algorithm='duo', blacklist=None, whitelist=None)
         mocked_dependencies.assert_any_call(id=2, start=10, end=20, date='2015-09-01', tenant='SOUKAIMY',
-                                            algorithm='duo')
+                                            algorithm='duo', blacklist=None, whitelist=None)
         mocked_dependencies.assert_any_call(id=3, start=20, end=23, date='2015-09-01', tenant='SOUKAIMY',
-                                            algorithm='duo')
+                                            algorithm='duo', blacklist=None, whitelist=None)

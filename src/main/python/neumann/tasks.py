@@ -2,6 +2,7 @@ import sys
 import subprocess
 import os.path
 import configparser
+import ujson
 
 from redis import Redis
 from rq.decorators import job
@@ -133,15 +134,17 @@ def _import_record_task(timestamp, tenant, job_id='default_job_id'):
 
 class ComputeRecommendationTask(ITask):
 
-    def __init__(self, date, tenant, algorithm, job_id='default_job_id'):
+    def __init__(self, date, tenant, algorithm, job_id='default_job_id', whitelist=None, blacklist=None):
         self.date = date
         self.tenant = tenant
         self.algorithm = algorithm
         self.job_id = job_id
+        self.whitelist = whitelist
+        self.blacklist = blacklist
 
     def run(self):
         _compute_recommendation_task.delay(date=self.date, tenant=self.tenant, algorithm=self.algorithm,
-                                           job_id=self.job_id)
+                                           job_id=self.job_id, whitelist=self.whitelist, blacklist=self.blacklist)
 
     def __str__(self):
 
@@ -151,7 +154,7 @@ class ComputeRecommendationTask(ITask):
 
 
 @job('default', connection=_redis_conn, timeout=int(taskconfig('recommend', 'timeout', 3600*2)))
-def _compute_recommendation_task(date, tenant, algorithm, job_id='default_job_id'):
+def _compute_recommendation_task(date, tenant, algorithm, job_id='default_job_id', whitelist=None, blacklist=None):
     
     def execute():
 
@@ -165,6 +168,14 @@ def _compute_recommendation_task(date, tenant, algorithm, job_id='default_job_id
                       '--tenant', tenant,
                       '--algorithm', algorithm,
                       '--workers', str(workers)]
+
+        if whitelist:
+            statements.append('--whitelist')
+            statements.append(ujson.dumps(whitelist))
+
+        if blacklist:
+            statements.append('--blacklist')
+            statements.append(ujson.dumps(blacklist))
 
         Logger.info(
             '\t'.join(statements)
